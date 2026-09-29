@@ -1,11 +1,12 @@
 import { useCallback } from "react";
 import { isModelDownloadError } from "../lib/modelSources.js";
 import {
-  isPiperSymbolError, isStorageQuotaError, splitTextAtSentenceEnd, TtsInputError,
+  isPiperSymbolError, isStorageQuotaError, TtsInputError,
 } from "../lib/ttsText.js";
 import {
   applyVoiceOutputGain, convertVoiceBlob, extractVoiceEmbedding, OPENVOICE_EMBEDDING_VERSION,
 } from "../lib/openVoiceRuntime.js";
+import { splitVoiceCaptionText } from "../lib/voiceCaptionSegmentation.js";
 import { synthesizeBaseVoice } from "../lib/baseVoiceSynthesis.js";
 
 export function useVoiceGeneration(d) {
@@ -17,9 +18,7 @@ export function useVoiceGeneration(d) {
     if (!rawText || d.status === "generating" || d.status === "captioning") return;
     d.setVoiceTab("synthesis"); d.setStatus("generating"); d.setStatusText("ttsStatusPreparingModel"); d.setProgress(6);
     try {
-      const sentenceSegments = d.selectedVoice.engine === "hojo"
-        ? splitTextAtSentenceEnd(rawText)
-        : [rawText];
+      const sentenceSegments = splitVoiceCaptionText(rawText);
       let targetEmbedding = d.selectedVoiceProfile?.embedding;
       if (targetEmbedding) {
         if (
@@ -76,18 +75,15 @@ export function useVoiceGeneration(d) {
       d.setStatusText("ttsStatusDecodingWaveform");
       d.setProgress((current) => Math.max(current, 96));
       const commitOptions = {
-        captionSegment, script: rawText,
+        captionSegment, script: rawText, gapSeconds: 0,
         sourceKind: d.selectedVoiceProfile ? "cloned-voiceover" : "ai-voiceover",
         cloneVoiceProfileId: d.selectedVoiceProfile?.id || "",
         cloneVoiceProfileName: d.selectedVoiceProfile?.name || "",
       };
-      if (generatedItems.length > 1) {
-        await d.commitAudioBatch(generatedItems, `${d.selectedVoice.name} · ${d.t("ttsGenerated")}`, commitOptions);
-        d.notify(d.t("ttsNoticeSegmentedGenerated").replace("{count}", generatedItems.length));
-      } else {
-        await d.commitAudio(generatedItems[0].blob, `${d.selectedVoice.name} · ${d.t("ttsGenerated")}`, commitOptions);
-        d.notify(d.t("ttsNoticeGenerated"));
-      }
+      await d.commitAudioBatch(generatedItems, `${d.selectedVoice.name} · ${d.t("ttsGenerated")}`, commitOptions);
+      d.notify(generatedItems.length > 1
+        ? d.t("ttsNoticeSegmentedGenerated").replace("{count}", generatedItems.length)
+        : d.t("ttsNoticeGenerated"));
     } catch (error) {
       console.error(error);
       const message = error instanceof TtsInputError ? d.t(error.code)

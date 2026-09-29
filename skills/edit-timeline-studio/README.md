@@ -17,11 +17,11 @@ Users are solely responsible for any legal liability arising from violations of 
 
 ## Project updates
 
-- **August 29, 2026 — Browser generation plugins:** the editor Plugins workspace now contains only Puter.js and Hugging Face Spaces. Puter uses real browser authentication and remote image/video generation with My assets delivery; Spaces are validated and embedded with an explicit output import path for their non-uniform APIs.
-- **August 26, 2026 — Portable visual splits:** fixed Agent `visual.split` projects so both contiguous clips retain their archived source media after reopening, preserving the full video and embedded source audio through browser export.
-- **August 24, 2026 — Rhythm click ripple:** added an editable osu!-inspired effect with music-aware timing, one full-frame refractive water ripple per hit, synchronized grayscale-to-color propagation, right-side controls, matched preview/export rendering, and localization across all 11 interface languages.
-- **August 12, 2026 — Desktop color wheels:** added keyframe-ready shadows, midtones, highlights, and offset wheels plus temperature, tint, and saturation, with matching preview and export rendering.
-- **August 7, 2026 — v0.9.2 cross-platform Agent Skill:** added reference-video reconstruction, highlight and tension shaping, promotion planning, provider-neutral footage sourcing, local model routing, host setup, voiceover preparation, and audio validation.
+- **2026-09-27** — Automatic captions now use word timestamps with short-phrase or word-by-word grouping, preventing long subtitle blocks in portrait videos. Preview, export and SRT share the same editable timed clips; controls support all 13 interface languages. AI voice generation also splits long scripts before synthesis and times each caption to its own audio, including caption-scoped voice generation. Caption display and SRT hide trailing commas, periods and semicolons while retaining expressive punctuation and the original editing/voice text.
+- **2026-09-27** — Desktop playback now pages the timeline at the 85% edge, returning the playhead to 20%. Manual horizontal scrolling suspends following; Return to playhead or restarting playback restores it. Pausing preserves the view.
+- **2026-09-27** — Unified video clips: main-video and picture-in-picture clips now combine a filename rail, filmstrip and source-audio waveform. Adjust each clip’s dB directly on its waveform, with matching preview/export gain and gain retained after audio separation. Includes all 13 interface languages. All audio lanes use fine bottom-aligned waveforms that follow gain, with orange caps above the display ceiling and existing track styling preserved. Timeline scrubbing advances the preview without waiting for compositor callbacks; release retains exact-frame confirmation.
+- **2026-09-21 — Remove pauses:** Smart now detects long speech pauses locally with Silero VAD, lets you review and select cuts, and trims the selected main-track video with its source audio. Adjustable pause thresholds, retained gaps, ripple editing, cancellation and undo are included, with direct UI copy in all 13 languages.
+- **2026-09-20 — Playhead marker snapping:** Dragging the white playhead previews the picture live and snaps to markers and range edges, with a shared alignment guide and time readout. Hold Alt to scrub freely. Marker details show Done until edited, then Apply changes.
 
 Timeline Studio is a local-first browser video editor plus an Agent Skill for creating editable, multi-track `.timeline` projects. It combines visual assembly, timed captions, multilingual AI voiceover, overlays, audio tools, and deterministic browser rendering without turning the project into an opaque one-off script.
 
@@ -36,6 +36,7 @@ Explore reproducible before/after examples and editing recipes:
 ## What it can automate
 
 - Inspect, dry-run, and transactionally modify a portable `.timeline` archive through a versioned JSON command plan.
+- Work with an open browser project through 15 native WebMCP tools when available: inspect the timeline, assets and markers; review and apply visual/caption/audio/marker operations and existing-asset or picture-in-picture insertion; seek, undo and save an editable copy; or prepare and run real video export with progress, output receipts and cancellation. See [browser integration](references/webmcp-integration.md).
 - Move voiceover clips; update caption text and timing; unlink or relink caption/audio pairs.
 - Import local visual or audio assets through the command runner with probing, SHA-256 integrity metadata, and portable archive embedding; use archived media for Visuals assembly and overlays.
 - Use the browser compatibility path for AI speech, automatic captions, effects, unsupported editor operations, and final video export while more commands move into the shared registry.

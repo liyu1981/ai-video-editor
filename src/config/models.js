@@ -1,5 +1,8 @@
 export const MODEL_ID = "onnx-community/Kokoro-82M-v1.0-ONNX";
-export const AUTOMATIC_CAPTION_MODEL_ID = "onnx-community/whisper-small";
+// Attention outputs are required for real word-level alignment. The plain
+// whisper-small export cannot satisfy return_timestamps: "word".
+export const AUTOMATIC_CAPTION_MODEL_ID = "onnx-community/whisper-small_timestamped";
+export const AUTOMATIC_CAPTION_MODEL_REVISION = "65caa70f294b46e1c33ff820aae6b16d048ab818";
 
 export const REMASTER_DRUNET_MODEL = {
   id: "seantempesta/remaster-drunet",

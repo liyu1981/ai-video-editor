@@ -18,7 +18,7 @@ export function createAudioTrackActions(d) {
       : Number.isFinite(estimatedFallback) && estimatedFallback > 0 ? estimatedFallback : 0;
     const playbackRate = Math.max(0.25, Math.min(4, Number(options.playbackRate) || 1));
     const sourceStart = Math.max(0, Math.min(fullDuration, Number(options.sourceStart) || 0));
-    const availableTimelineDuration = Math.max(0, (fullDuration - sourceStart) / playbackRate);
+    const availableTimelineDuration = options.speedCurve?.enabled ? options.timelineDuration : Math.max(0, (fullDuration - sourceStart) / playbackRate);
     const requestedTimelineDuration = Number(options.timelineDuration);
     const nextDuration = Number.isFinite(requestedTimelineDuration) && requestedTimelineDuration > 0
       ? Math.min(requestedTimelineDuration, availableTimelineDuration || requestedTimelineDuration)
@@ -32,10 +32,11 @@ export function createAudioTrackActions(d) {
       start,
       duration: nextDuration,
       sourceStart,
-      sourceDuration: Math.min(Math.max(0, fullDuration - sourceStart), nextDuration * playbackRate),
+      sourceDuration: Math.min(Math.max(0, fullDuration - sourceStart), options.sourceDuration ?? nextDuration * playbackRate),
       playbackRate,
       peaks: Array.isArray(nextPeaks) ? nextPeaks : [],
-      volume: 1,
+      volume: Math.max(0, Math.min(4, options.volume ?? 1)),
+      ...(options.speedCurve ? { speedCurve: options.speedCurve } : {}),
       fadeIn: 0,
       fadeOut: 0,
       reversed: false,
@@ -295,6 +296,8 @@ export function createAudioTrackActions(d) {
         rememberedVoiceEnd ? rememberedVoiceEnd + DEFAULT_GENERATED_VOICE_GAP : 0,
         getGeneratedVoiceAppendStart(d.audioSegmentsRef?.current ?? d.audioSegments, d.currentTimeRef.current),
       );
+    const gap = Number.isFinite(options.gapSeconds)
+      ? Math.max(0, Math.min(DEFAULT_GENERATED_VOICE_GAP, options.gapSeconds)) : DEFAULT_GENERATED_VOICE_GAP;
     const created = [];
     for (let index = 0; index < decodedItems.length; index += 1) {
       const item = decodedItems[index];
@@ -314,9 +317,9 @@ export function createAudioTrackActions(d) {
         cloneVoiceProfileName: options.cloneVoiceProfileName || "",
       });
       created.push({ ...item, audioSegment: segment });
-      cursor = segment.start + segment.duration + DEFAULT_GENERATED_VOICE_GAP;
+      cursor = segment.start + segment.duration + gap;
     }
-    const finalEnd = Math.max(0, cursor - DEFAULT_GENERATED_VOICE_GAP);
+    const finalEnd = Math.max(0, cursor - gap);
     if (!captionSegment && d.generatedVoiceEndRef) d.generatedVoiceEndRef.current = finalEnd;
 
     const generatedCaptions = created.map((item, index) => {
@@ -326,6 +329,7 @@ export function createAudioTrackActions(d) {
       return {
         ...template,
         text: item.script,
+        timingSource: "tts-phrase",
         audioSegmentId: "",
         detachedAudioSegmentId: item.audioSegment.id,
         start: item.audioSegment.start,

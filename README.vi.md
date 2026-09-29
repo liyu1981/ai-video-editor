@@ -19,11 +19,11 @@ Người dùng tự chịu mọi trách nhiệm pháp lý phát sinh từ việc
 
 ## Cập nhật dự án
 
-- **1 tháng 9, 2026 — Video sẵn sàng nhanh mà vẫn đồng bộ:** nhập cục bộ và trực tuyến chỉ chờ một nhóm nhỏ khung hình hạt giống có PTS thật, điều chỉnh theo thiết bị, thay vì bị chặn bởi 120–240 hình thu nhỏ. Sau đó các khung hình chính xác ưu tiên hoàn thiện vùng đang thấy rồi tiếp tục ngoài màn hình theo thứ tự chia đôi tại trung điểm. Mỗi hình thu nhỏ dùng khung hình cuối cùng trước thời gian nguồn yêu cầu, ô đầu phát theo bản xem trước trực tiếp và cập nhật nền tạm dừng khi tua.
-- **29 tháng 8, 2026 — Bộ kết nối tạo cục bộ:** bổ sung hai plugin riêng cho ComfyUI và Stable Diffusion WebUI/Forge. ComfyUI chạy quy trình API Format qua loopback và nhập đầu ra ảnh hoặc video; WebUI dùng API txt2img/img2img thực. Kết quả tự động vào My assets và phần nhúng Hugging Face Spaces chung đã được loại bỏ.
-- **28 tháng 8, 2026 — Khử nhiễu thông minh cục bộ:** Hình ảnh → Sửa chữa AI cung cấp DRUNet với so sánh khung hình, bốn mức cường độ, giữ âm thanh nguồn và áp dụng có thể hoàn tác. Toàn đoạn nay chạy ở tốc độ khung hình nguồn qua luồng WebCodecs, chồng lấp giải mã và suy luận, duy trì WebGPU Session, tái sử dụng canvas, tensor và bộ đệm điểm ảnh, đồng thời thận trọng dùng lại phần dư khử nhiễu cho các khung hình liền kề ít thay đổi; PNG/FFmpeg vẫn là đường tương thích. Có trên máy tính, di động và đủ 11 ngôn ngữ.
-- **28 tháng 8, 2026 — Chuẩn bị video độ trung thực cao trên dòng thời gian:** video mới tải lên giữ trạng thái đang xử lý rõ ràng trong khi giải mã siêu dữ liệu và ảnh thu nhỏ PTS thực, tránh khối giữ chỗ bị kéo giãn. Dải phim dùng khung nguồn 180px sắc nét hơn, mật độ dễ đọc theo mức thu phóng, ánh xạ thời gian nguồn chính xác dưới đầu phát và cắt giữa video dọc không có viền đen.
-- **28 tháng 8, 2026 — Tiến độ thời gian thực cho mô hình tích hợp Chrome:** Dựng tự động hiển thị riêng tiến độ Chrome thực tế, trạng thái hoàn tất và số lần thử của mô hình hiểu hình ảnh và dịch phụ đề. Nếu Chrome không phát tiến độ trong 45 giây, giao diện báo trạng thái bị kẹt và hiện nút Thử tải xuống lại do người dùng kích hoạt, vừa giữ tương tác bắt buộc vừa dùng tiếp dữ liệu tải dở của Chrome.
+- **2026-09-27** — Phụ đề tự động dùng thời gian từng từ, chia thành cụm ngắn hoặc từng từ để tránh khối chữ dài trong video dọc. Xem trước, xuất video và SRT dùng chung các đoạn có thể chỉnh sửa; giao diện hỗ trợ 13 ngôn ngữ. Giọng nói AI cũng chia văn bản dài trước khi tổng hợp và căn mỗi phụ đề theo âm thanh thực tế, kể cả khi tạo giọng từ phụ đề đang chọn. Hiển thị phụ đề và SRT ẩn dấu phẩy, chấm và chấm phẩy cuối câu, giữ dấu biểu cảm cùng nguyên văn để chỉnh sửa và tạo giọng nói.
+- **2026-09-27** — Khi phát trên máy tính, dòng thời gian chuyển trang ở mốc 85%, đưa đầu phát về khoảng 20%. Cuộn ngang thủ công tạm dừng theo dõi; trở về đầu phát hoặc phát lại sẽ khôi phục. Tạm dừng giữ nguyên khung nhìn.
+- **2026-09-27** — Clip hình và tiếng hợp nhất: video chính và hình trong hình hiển thị tên tệp, ảnh thu nhỏ và sóng âm gốc trong cùng clip. Chỉnh dB từng clip ngay trên sóng âm, thống nhất khi xem trước và xuất, giữ nguyên âm lượng khi tách âm thanh. Hỗ trợ 13 ngôn ngữ. Mọi làn âm thanh dùng sóng chi tiết từ đáy, thay đổi theo độ khuếch đại; đỉnh vượt giới hạn hiển thị có màu cam và giữ nguyên kiểu dáng. Khi kéo đầu phát, bản xem trước cập nhật mà không chờ xác nhận hiển thị; khi thả vẫn kiểm tra khung hình chính xác.
+- **2026-09-21 — Xóa khoảng nghỉ:** menu Thông minh dùng Silero VAD để phát hiện khoảng nghỉ dài ngay trong trình duyệt. Có thể xem lại, chọn cắt đồng bộ video chính và âm thanh gốc, chỉnh ngưỡng và khoảng giữ lại, dùng ripple, hủy và hoàn tác. Giao diện hỗ trợ đủ 13 ngôn ngữ.
+- **2026-09-20 — Bám mốc cho đầu phát:** Kéo đầu phát màu trắng để xem trước hình ảnh trực tiếp và bám vào mốc hoặc hai đầu khoảng, kèm đường căn chỉnh và thời gian. Giữ Alt để kéo tự do. Chi tiết dấu mốc hiển thị Xong trước khi sửa và Áp dụng thay đổi sau khi sửa.
 
 Xem [Roadmap](ROADMAP.md) cho công việc dự kiến, [Releases](https://github.com/MartinDelophy/ai-video-editor/releases) cho thay đổi đã phát hành và [Issues](https://github.com/MartinDelophy/ai-video-editor/issues) cho nhiệm vụ và lỗi.
 
@@ -77,12 +77,12 @@ gh skill install MartinDelophy/ai-video-editor edit-timeline-studio --agent clau
 gh skill install MartinDelophy/ai-video-editor edit-timeline-studio --agent codex --scope user
 ```
 
-Thêm `--pin v1.0.0` để cài bản phát hành đã được kiểm chứng thay vì luôn theo bản mới nhất. Có thể xem trước nội dung bằng `gh skill preview MartinDelophy/ai-video-editor edit-timeline-studio`.
+Thêm `--pin v1.0.8` để cài bản phát hành đã được kiểm chứng thay vì luôn theo bản mới nhất. Có thể xem trước nội dung bằng `gh skill preview MartinDelophy/ai-video-editor edit-timeline-studio`.
 
 ## Lộ trình
 
 - **Hiện tại:** củng cố quy trình xuất ngoại tuyến xác định, tăng độ tin cậy của dòng thời gian và mở rộng kiểm thử đầu-cuối trong trình duyệt.
-- **Tiếp theo:** phát hành trình chạy lệnh headless có phiên bản cho chỉnh sửa bằng tác nhân và giúp chia sẻ mẫu dự án tái sử dụng dễ dàng hơn.
+- **Tiếp theo:** mở rộng tính tương đương giữa kết xuất headless và trình duyệt, các lệnh WebMCP có thể xem xét và việc chia sẻ mẫu dự án.
 - **Sau này:** bổ sung quy trình đánh giá cộng tác, giao diện tiện ích mở rộng và thêm các mô hình AI được xác minh cục bộ.
 
 Các ưu tiên được thảo luận tại [GitHub Discussions](https://github.com/MartinDelophy/ai-video-editor/discussions).

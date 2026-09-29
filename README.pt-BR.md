@@ -19,11 +19,11 @@ O usuário é o único responsável por quaisquer consequências legais decorren
 
 ## Novidades do projeto
 
-- **1º de setembro de 2026 — Vídeo pronto mais cedo sem perder sincronização:** importações locais e online aguardam apenas um pequeno conjunto de quadros-semente com PTS real, adaptado ao dispositivo, em vez de bloquear em 120–240 miniaturas. Depois, quadros exatos refinam primeiro a área visível e continuam fora da tela por subdivisão de pontos médios. Cada miniatura usa o último quadro anterior ao tempo de origem solicitado, o cursor acompanha a prévia ao vivo e as atualizações em segundo plano pausam durante a busca.
-- **29 de agosto de 2026 — Conectores de geração local:** foram adicionados plugins separados para ComfyUI e Stable Diffusion WebUI/Forge. O ComfyUI executa fluxos API Format em loopback e importa imagens ou vídeos; o WebUI usa as APIs reais txt2img/img2img. Os resultados entram automaticamente em My assets e a integração genérica do Hugging Face Spaces foi removida.
-- **28 de agosto de 2026 — Redução de ruído inteligente local:** Visuais → Reparo por IA oferece DRUNet com comparação de quadro, quatro intensidades, áudio de origem e aplicação reversível. Clipes completos agora fluem na taxa de quadros original por WebCodecs, sobrepondo decodificação e inferência, mantendo a sessão WebGPU e reutilizando canvas, tensores e buffers de pixels; quadros vizinhos com pouca mudança reutilizam com cautela o resíduo de redução, com PNG/FFmpeg como compatibilidade. Disponível no desktop e celular nos 11 idiomas.
-- **28 de agosto de 2026 — Preparação de vídeo em alta fidelidade na linha do tempo:** vídeos recém-enviados permanecem em um estado visível de carregamento durante a leitura de metadados e miniaturas PTS reais, evitando blocos provisórios esticados. A faixa usa quadros-fonte de 180px, densidade legível conforme o zoom, correspondência temporal exata sob o cursor e recorte central sem barras pretas para vídeo vertical.
-- **28 de agosto de 2026 — Progresso em tempo real dos modelos integrados do Chrome:** a Edição automática mostra separadamente o progresso real do Chrome, a conclusão e o número da tentativa dos modelos de compreensão visual e tradução de legendas. Se o Chrome não emitir progresso por 45 segundos, a interface mostra o bloqueio e uma ação Tentar download novamente iniciada pelo usuário, preservando a ativação exigida e o estado parcial do Chrome.
+- **2026-09-27** — Legendas automáticas usam tempos por palavra e divisão em frases curtas ou palavra por palavra, evitando blocos longos em vídeos verticais. Prévia, exportação e SRT usam os mesmos clipes editáveis; controles em 13 idiomas. A voz IA também divide textos longos antes da síntese e ajusta cada legenda ao próprio áudio, inclusive ao gerar voz para a legenda selecionada. A exibição e o SRT ocultam vírgulas, pontos e pontos e vírgulas finais, preservando sinais expressivos e o texto original para edição e voz.
+- **2026-09-27** — Na reprodução no desktop, a linha do tempo avança ao atingir 85%, reposicionando o cursor em 20%. Rolagem horizontal manual suspende o acompanhamento; voltar ao cursor ou reiniciar a reprodução o restaura. A pausa mantém a visualização.
+- **2026-09-27** — Clipes de vídeo unificados: vídeo principal e picture-in-picture reúnem nome, miniaturas e forma de onda do áudio original. Ajuste os dB por clipe na onda, com ganho consistente na prévia e exportação, preservado ao separar o áudio. Interface em 13 idiomas. Todas as faixas de áudio exibem ondas finas alinhadas à base que acompanham o ganho, com picos laranja acima do limite visual e o estilo existente preservado. Ao arrastar o cursor de reprodução, a prévia avança sem aguardar a confirmação de apresentação; ao soltar, o quadro exato continua sendo verificado.
+- **2026-09-21 — Remover pausas:** Smart detecta pausas longas localmente com Silero VAD. Revise e selecione cortes no vídeo principal e seu áudio, ajuste o limite e o intervalo mantido, use edição ripple, cancele ou desfaça. Interface disponível em 13 idiomas.
+- **2026-09-20 — Encaixe do cursor nos marcadores:** Arrastar o cursor branco exibe a imagem em tempo real e encaixa nos marcadores e limites de intervalos, com guia de alinhamento e tempo. Segure Alt para mover livremente. Os detalhes mostram Concluído antes da edição e Aplicar alterações depois.
 
 Consulte o [Roadmap](ROADMAP.md) para o trabalho planejado, [Releases](https://github.com/MartinDelophy/ai-video-editor/releases) para mudanças publicadas e [Issues](https://github.com/MartinDelophy/ai-video-editor/issues) para tarefas e erros.
 
@@ -77,12 +77,12 @@ gh skill install MartinDelophy/ai-video-editor edit-timeline-studio --agent clau
 gh skill install MartinDelophy/ai-video-editor edit-timeline-studio --agent codex --scope user
 ```
 
-Adicione `--pin v1.0.0` para instalar a versão verificada em vez de acompanhar a release mais recente. Antes de instalar, você pode conferir o conteúdo com `gh skill preview MartinDelophy/ai-video-editor edit-timeline-studio`.
+Adicione `--pin v1.0.8` para instalar a versão verificada em vez de acompanhar a release mais recente. Antes de instalar, você pode conferir o conteúdo com `gh skill preview MartinDelophy/ai-video-editor edit-timeline-studio`.
 
 ## Roteiro
 
 - **Agora:** fortalecer a exportação offline determinística, melhorar a confiabilidade da linha do tempo e ampliar os testes de ponta a ponta no navegador.
-- **Em seguida:** lançar o executor de comandos headless versionado para edição por agentes e facilitar o compartilhamento de modelos de projeto reutilizáveis.
+- **Em seguida:** ampliar a paridade da renderização headless, os comandos WebMCP que podem ser revisados e o compartilhamento de modelos de projeto.
 - **Mais adiante:** adicionar revisão colaborativa, uma interface de extensões e mais modelos de IA verificados localmente.
 
 As prioridades são definidas em [GitHub Discussions](https://github.com/MartinDelophy/ai-video-editor/discussions).

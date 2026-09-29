@@ -24,11 +24,11 @@ Users are solely responsible for any legal liability arising from violations of 
 
 ## Project updates
 
-- **September 1, 2026 — Sync-safe instant video readiness:** local and online imports now block only for a small device-adaptive set of real-PTS seed frames instead of 120–240 thumbnails, so a prepared filmstrip becomes editable much sooner without stretching one poster across the clip. Exact frames then refine the visible viewport first and continue through offscreen cells in midpoint-bisection order; thumbnail selection remains strictly at-or-before the requested source time, the playhead uses the live preview frame, and batched background commits pause during scrubbing.
-- **August 29, 2026 — Generation connectors that finish the asset workflow:** Puter keeps its real popup sign-in and browser-direct generation, while new separate ComfyUI and Stable Diffusion WebUI/Forge plugins connect only to configurable loopback services. ComfyUI runs API-format workflows and imports declared image/video outputs; WebUI runs real txt2img/img2img requests. All completed media is added automatically to My assets, and the generic Hugging Face Spaces embed has been removed.
-- **August 28, 2026 — Browser-local Smart Denoise:** the Visuals → AI Repair workspace now starts with a DRUNet-powered video denoiser offering current-frame comparison, four strength modes, source-audio preservation, and reversible application. Full-clip processing now streams source-rate WebCodecs frames through overlapped decode, persistent WebGPU sessions, pooled canvases/tensors/pixel buffers, and conservative denoise-residual reuse for low-change neighbors, with a PNG/FFmpeg compatibility fallback. The workflow is available on desktop and mobile in all 11 interface languages.
-- **August 28, 2026 — High-fidelity video timeline preparation:** newly uploaded videos now remain in a visible preparing state while metadata and real-PTS thumbnails are decoded, preventing stretched placeholder blocks. Timeline filmstrips use sharper 180px source frames, readable zoom-aware density, exact source-time mapping beneath the playhead, and centered fill crops for portrait footage without black bars.
-- **August 28, 2026 — Live Chrome built-in model download progress:** Auto Edit now reports the visual-understanding and caption-translation models separately with their real Chrome progress, completion state, and visible attempt count. If Chrome emits no progress for 45 seconds, the UI shows a clear stalled state and a user-activated Retry download action so Chrome can reuse any partial download state without losing the required click activation.
+- **2026-09-27** — Automatic captions now use word timestamps with short-phrase or word-by-word grouping, preventing long subtitle blocks in portrait videos. Preview, export and SRT share the same editable timed clips; controls support all 13 interface languages. AI voice generation also splits long scripts before synthesis and times each caption to its own audio, including caption-scoped voice generation. Caption display and SRT hide trailing commas, periods and semicolons while retaining expressive punctuation and the original editing/voice text.
+- **2026-09-27** — Desktop playback now pages the timeline at the 85% edge, returning the playhead to 20%. Manual horizontal scrolling suspends following; Return to playhead or restarting playback restores it. Pausing preserves the view.
+- **2026-09-27** — Unified video clips: main-video and picture-in-picture clips now combine a filename rail, filmstrip and source-audio waveform. Adjust each clip’s dB directly on its waveform, with matching preview/export gain and gain retained after audio separation. Includes all 13 interface languages. All audio lanes use fine bottom-aligned waveforms that follow gain, with orange caps above the display ceiling and existing track styling preserved. Timeline scrubbing advances the preview without waiting for compositor callbacks; release retains exact-frame confirmation.
+- **2026-09-21 — Remove pauses:** Smart now detects long speech pauses locally with Silero VAD, lets you review and select cuts, and trims the selected main-track video with its source audio. Adjustable pause thresholds, retained gaps, ripple editing, cancellation and undo are included, with direct UI copy in all 13 languages.
+- **2026-09-20 — Playhead marker snapping:** Dragging the white playhead previews the picture live and snaps to markers and range edges, with a shared alignment guide and time readout. Hold Alt to scrub freely. Marker details show Done until edited, then Apply changes.
 
 See the public [Roadmap](ROADMAP.md) for planned work, [Releases](https://github.com/MartinDelophy/ai-video-editor/releases) for shipped changes, and [Issues](https://github.com/MartinDelophy/ai-video-editor/issues) for focused tasks and bugs.
 
@@ -111,7 +111,7 @@ It helps an agent:
 - verify track placement, transitions, captions, overlays, audible audio, and final export artifacts;
 - keep the editable `.timeline` project as the source of truth instead of returning only an opaque render.
 
-The versioned headless command runner loads and inspects portable projects, validates revisioned JSON plans, applies supported operations transactionally, supports dry runs and idempotent operation IDs, and writes a new `.timeline` archive without rewriting its media files. It also renders the documented portable Visuals + Voiceover + Music subset to a verified H.264/AAC MP4. Browser control remains the compatibility path for richer compositions and operations that are not in the command registry yet.
+The versioned headless command runner loads and inspects portable projects, validates revisioned JSON plans, applies supported operations transactionally, supports dry runs and idempotent operation IDs, and writes a new `.timeline` archive without rewriting its media files. It also renders the documented portable Visuals + Voiceover + Music subset to a verified H.264/AAC MP4. Browser control remains the compatibility path for operations that are not in the command registry yet. The [browser WebMCP integration](docs/webmcp.md) provides 21 tools for the open project: structured inspection, 26 reviewed visual/caption/audio/marker/framing operations, existing-asset and picture-in-picture insertion, rendered frame/audio sampling, local voiceover/transcription jobs, guarded undo, project saving, and real video export with prepared settings, progress, output receipts and cancellation.
 
 ```bash
 npm run agent -- project.inspect /absolute/path/project.timeline
@@ -141,7 +141,7 @@ gh skill install MartinDelophy/ai-video-editor edit-timeline-studio --agent clau
 gh skill install MartinDelophy/ai-video-editor edit-timeline-studio --agent codex --scope user
 ```
 
-To install the tested release instead of following the latest release, add `--pin v1.0.0`. Preview the Skill before installing with:
+To install the tested release instead of following the latest release, add `--pin v1.0.8`. Preview the Skill before installing with:
 
 ```bash
 gh skill preview MartinDelophy/ai-video-editor edit-timeline-studio
@@ -150,7 +150,7 @@ gh skill preview MartinDelophy/ai-video-editor edit-timeline-studio
 ## Roadmap
 
 - **Now:** expand the versioned command registry, harden deterministic offline export, and improve timeline editing reliability.
-- **Next:** expand headless render parity and expose the shared command engine through MCP.
+- **Next:** expand headless render parity and the reviewed browser WebMCP command subset.
 - **Later:** add collaborative review workflows, a plugin extension surface, and more locally verified AI models.
 
 Roadmap priorities are shaped in [GitHub Discussions](https://github.com/MartinDelophy/ai-video-editor/discussions). Feature requests and real-world workflow feedback are welcome.

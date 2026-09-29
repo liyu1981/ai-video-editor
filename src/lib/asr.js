@@ -1,22 +1,10 @@
-import { AUTOMATIC_CAPTION_MODEL_ID, AUTOMATIC_CAPTION_MODEL_LABEL } from "../config/models.js";
+import { AUTOMATIC_CAPTION_MODEL_ID, AUTOMATIC_CAPTION_MODEL_LABEL, AUTOMATIC_CAPTION_MODEL_REVISION } from "../config/models.js";
 import { makeId } from "./timeline.js";
+import { captionSegmentsFromWords } from "./captionSegmentation.js";
 
 const ASR_SAMPLE_RATE = 16000;
-const MIN_CAPTION_DURATION = 0.45;
-const FALLBACK_CAPTION_SECONDS = 3.2;
 const LANGUAGE_DETECTION_SECONDS = 20;
 const CHINESE_VISIBLE_CHAR_THRESHOLD = 8;
-const ENERGY_FRAME_SECONDS = 0.05;
-const ENERGY_MERGE_GAP_SECONDS = 0.35;
-const ENERGY_MIN_INTERVAL_SECONDS = 0.1;
-const ENERGY_SEQUENCE_MIN_INTERVAL_SECONDS = 0.48;
-const ENERGY_SEQUENCE_REALIGN_LEAD_SECONDS = 1;
-const ENERGY_SEQUENCE_FIRST_START_SECONDS = 0.75;
-const ENERGY_SKIPPED_INTERVAL_RATIO = 0.95;
-const ENERGY_BOUNDARY_PADDING_SECONDS = 0.12;
-const ENERGY_MAX_EXTENSION_SECONDS = 0.45;
-const CHINESE_CAPTION_CHARS_PER_SECOND = 5;
-const MAX_SEQUENCE_CAPTION_SECONDS = 4.5;
 const CJK_PATTERN = /[\u3400-\u9fff]/;
 
 const CHINESE_ASR_CONTEXT_REPLACEMENTS = [
@@ -36,6 +24,9 @@ const UI_LANGUAGE_TO_WHISPER_LANGUAGE = {
   pt: "pt",
   th: "th",
   vi: "vi",
+  it: "it",
+  id: "id",
+  ru: "ru",
 };
 
 const WHISPER_LANGUAGE_NAMES = {
@@ -49,12 +40,19 @@ const WHISPER_LANGUAGE_NAMES = {
   pt: "Português",
   th: "ไทย",
   vi: "Tiếng Việt",
+  it: "Italiano",
+  id: "Bahasa Indonesia",
+  ru: "Русский",
 };
 
 let transcriberState = null;
 let asrWorker = null;
 let shouldSkipAsrWorker = false;
+let transcriptionActive = false;
 const workerRequests = new Map();
+const throwIfAborted = (signal) => {
+  if (signal?.aborted) throw new DOMException("Cancelled", "AbortError");
+};
 
 function getAudioContext(sampleRate = ASR_SAMPLE_RATE) {
   const AudioContextClass = window.AudioContext || window.webkitAudioContext;
@@ -94,28 +92,6 @@ async function decodeAudioForAsr(blob) {
   }
 }
 
-function normalizeTimestampValue(value) {
-  if (value === null || value === undefined) {
-    return null;
-  }
-
-  const normalized = Number(value);
-  return Number.isFinite(normalized) ? normalized : null;
-}
-
-function normalizeTimestamp(timestamp, fallbackStart, fallbackEnd, timelineOffset = 0) {
-  if (!Array.isArray(timestamp)) {
-    return [fallbackStart + timelineOffset, fallbackEnd + timelineOffset];
-  }
-
-  const [rawStart, rawEnd] = timestamp;
-  const timestampStart = normalizeTimestampValue(rawStart);
-  const timestampEnd = normalizeTimestampValue(rawEnd);
-  const start = (timestampStart ?? fallbackStart) + timelineOffset;
-  const end = (timestampEnd ?? fallbackEnd) + timelineOffset;
-  return [Math.max(0, start), Math.max(start + MIN_CAPTION_DURATION, end)];
-}
-
 function normalizeAsrWhitespace(text, language) {
   const normalized = String(text ?? "").replace(/\s+/g, " ").trim();
   if (language !== "zh") {
@@ -139,297 +115,6 @@ function normalizeChineseAsrText(text) {
 function normalizeAsrText(text, language) {
   const normalized = normalizeAsrWhitespace(text, language);
   return language === "zh" ? normalizeChineseAsrText(normalized) : normalized;
-}
-
-function outputToCaptionSegments(output, duration, timelineOffset = 0, language = "zh") {
-  const chunks = Array.isArray(output?.chunks) ? output.chunks : [];
-  let previousEnd = timelineOffset;
-  const segments = chunks
-    .map((chunk, index) => {
-      const rawText = normalizeAsrWhitespace(chunk.text, language);
-      const text = normalizeAsrText(rawText, language);
-      if (!text) {
-        return null;
-      }
-
-      const fallbackStart = Math.max(
-        0,
-        Math.min(duration, index === 0 ? 0 : previousEnd - timelineOffset),
-      );
-      const fallbackEnd = Math.min(duration, fallbackStart + FALLBACK_CAPTION_SECONDS);
-      const [start, end] = normalizeTimestamp(
-        chunk.timestamp,
-        fallbackStart,
-        fallbackEnd,
-        timelineOffset,
-      );
-      const clampedStart = Math.min(
-        duration + timelineOffset,
-        Math.max(timelineOffset, start < previousEnd - 0.05 ? previousEnd : start),
-      );
-      const clampedEnd = Math.min(
-        duration + timelineOffset,
-        Math.max(clampedStart + MIN_CAPTION_DURATION, end),
-      );
-      previousEnd = clampedEnd;
-
-      return {
-        id: makeId("caption"),
-        text,
-        rawText: rawText !== text ? rawText : undefined,
-        start: clampedStart,
-        end: clampedEnd,
-        hidden: false,
-        source: "asr",
-      };
-    })
-    .filter(Boolean)
-    .filter((segment) => segment.end > segment.start)
-    .sort((a, b) => a.start - b.start);
-
-  if (segments.length) {
-    return segments;
-  }
-
-  const rawText = normalizeAsrWhitespace(output?.text, language);
-  const text = normalizeAsrText(rawText, language);
-  return text
-    ? [
-        {
-          id: makeId("caption"),
-          text,
-          rawText: rawText !== text ? rawText : undefined,
-          start: timelineOffset,
-          end: timelineOffset + Math.max(MIN_CAPTION_DURATION, duration || FALLBACK_CAPTION_SECONDS),
-          hidden: false,
-          source: "asr",
-        },
-      ]
-    : [];
-}
-
-function getQuantile(sortedValues, quantile) {
-  if (!sortedValues.length) {
-    return 0;
-  }
-
-  const index = Math.max(0, Math.min(sortedValues.length - 1, Math.floor(sortedValues.length * quantile)));
-  return sortedValues[index];
-}
-
-function getAudioEnergyFrames(audio) {
-  const frameLength = Math.max(1, Math.round(ASR_SAMPLE_RATE * ENERGY_FRAME_SECONDS));
-  const frames = [];
-  for (let index = 0; index < audio.length; index += frameLength) {
-    let sum = 0;
-    const end = Math.min(audio.length, index + frameLength);
-    for (let sampleIndex = index; sampleIndex < end; sampleIndex += 1) {
-      sum += audio[sampleIndex] * audio[sampleIndex];
-    }
-
-    frames.push({
-      start: index / ASR_SAMPLE_RATE,
-      end: end / ASR_SAMPLE_RATE,
-      rms: Math.sqrt(sum / Math.max(1, end - index)),
-    });
-  }
-  return frames;
-}
-
-function getActiveAudioIntervals(audio) {
-  const frames = getAudioEnergyFrames(audio);
-  if (!frames.length) {
-    return [];
-  }
-
-  const rmsValues = frames.map((frame) => frame.rms).sort((a, b) => a - b);
-  const median = getQuantile(rmsValues, 0.5);
-  const upperMid = getQuantile(rmsValues, 0.75);
-  const loud = getQuantile(rmsValues, 0.9);
-  const threshold = Math.max(0.008, median * 1.8, upperMid * 1.12, loud * 0.45);
-  const rawIntervals = [];
-  let currentStart = null;
-  let currentEnd = null;
-
-  frames.forEach((frame) => {
-    if (frame.rms >= threshold) {
-      currentStart ??= frame.start;
-      currentEnd = frame.end;
-      return;
-    }
-
-    if (currentStart !== null && currentEnd - currentStart >= ENERGY_MIN_INTERVAL_SECONDS) {
-      rawIntervals.push({ start: currentStart, end: currentEnd });
-    }
-    currentStart = null;
-    currentEnd = null;
-  });
-
-  if (currentStart !== null && currentEnd - currentStart >= ENERGY_MIN_INTERVAL_SECONDS) {
-    rawIntervals.push({ start: currentStart, end: currentEnd });
-  }
-
-  return rawIntervals.reduce((merged, interval) => {
-    const previous = merged.at(-1);
-    if (previous && interval.start - previous.end <= ENERGY_MERGE_GAP_SECONDS) {
-      previous.end = Math.max(previous.end, interval.end);
-      return merged;
-    }
-
-    merged.push({ ...interval });
-    return merged;
-  }, []);
-}
-
-function scoreActiveInterval(interval, segmentStart, segmentEnd) {
-  const duration = interval.end - interval.start;
-  const endDistance = Math.abs(interval.end - segmentEnd);
-  const centerDistance = Math.abs((interval.start + interval.end - segmentStart - segmentEnd) / 2);
-  return duration * 1.8 - endDistance * 0.35 - centerDistance * 0.05;
-}
-
-function findBestActiveInterval(intervals, searchStart, searchEnd, segmentStart, segmentEnd) {
-  return intervals
-    .map((interval) => ({
-      start: Math.max(searchStart, interval.start),
-      end: Math.min(searchEnd, interval.end),
-    }))
-    .filter((interval) => interval.end - interval.start >= ENERGY_MIN_INTERVAL_SECONDS)
-    .sort(
-      (left, right) =>
-        scoreActiveInterval(right, segmentStart, segmentEnd) -
-        scoreActiveInterval(left, segmentStart, segmentEnd),
-    )[0] ?? null;
-}
-
-function getIntervalDuration(interval) {
-  return Math.max(0, interval.end - interval.start);
-}
-
-function getRealignedEnergySequence(intervals, segments, timelineOffset = 0) {
-  if (segments.length < 2 || intervals.length <= segments.length) {
-    return null;
-  }
-
-  const firstSegmentStart = Math.max(0, segments[0].start - timelineOffset);
-  if (firstSegmentStart > ENERGY_SEQUENCE_FIRST_START_SECONDS) {
-    return null;
-  }
-
-  const meaningfulIntervals = intervals.filter(
-    (interval) => getIntervalDuration(interval) >= ENERGY_SEQUENCE_MIN_INTERVAL_SECONDS,
-  );
-  if (meaningfulIntervals.length <= segments.length) {
-    return null;
-  }
-
-  const candidateIntervals = meaningfulIntervals.slice(-segments.length);
-  const skippedIntervals = meaningfulIntervals.slice(0, -segments.length);
-  const firstCandidateDuration = getIntervalDuration(candidateIntervals[0]);
-  const skippedMaxDuration = skippedIntervals.reduce(
-    (maxDuration, interval) => Math.max(maxDuration, getIntervalDuration(interval)),
-    0,
-  );
-  const hasClearLeadIn = candidateIntervals[0].start - firstSegmentStart >= ENERGY_SEQUENCE_REALIGN_LEAD_SECONDS;
-  const skippedLooksLikeNoise = skippedMaxDuration <= firstCandidateDuration * ENERGY_SKIPPED_INTERVAL_RATIO;
-
-  return hasClearLeadIn && skippedLooksLikeNoise ? candidateIntervals : null;
-}
-
-function getEstimatedCaptionSpeechSeconds(text) {
-  const compactText = String(text ?? "").replace(/\s/g, "");
-  const cjkCount = compactText.match(/[\u3400-\u9fff]/g)?.length ?? 0;
-  if (cjkCount) {
-    return Math.max(
-      MIN_CAPTION_DURATION,
-      Math.min(MAX_SEQUENCE_CAPTION_SECONDS, cjkCount / CHINESE_CAPTION_CHARS_PER_SECOND + 0.6),
-    );
-  }
-
-  const wordCount = compactText ? Math.max(1, compactText.split(/\s+/).length) : 1;
-  return Math.max(MIN_CAPTION_DURATION, Math.min(MAX_SEQUENCE_CAPTION_SECONDS, wordCount / 2.8 + 0.8));
-}
-
-function refineCaptionSegmentsWithAudioEnergy(segments, audio, duration, timelineOffset = 0) {
-  if (!segments.length || !audio.length || duration <= 0) {
-    return segments;
-  }
-
-  const intervals = getActiveAudioIntervals(audio);
-  if (!intervals.length) {
-    return segments;
-  }
-
-  let previousEnd = timelineOffset;
-  const realignedSequence = getRealignedEnergySequence(intervals, segments, timelineOffset);
-  return segments.map((segment, index) => {
-    const localStart = Math.max(0, segment.start - timelineOffset);
-    const localEnd = Math.max(localStart + MIN_CAPTION_DURATION, segment.end - timelineOffset);
-    const hasNextSegment = Number.isFinite(segments[index + 1]?.start);
-    const nextLocalStart = hasNextSegment
-      ? Math.max(0, segments[index + 1].start - timelineOffset)
-      : duration;
-    const searchStart = Math.max(0, localStart - 0.35);
-    const searchEnd = Math.min(
-      duration,
-      hasNextSegment ? nextLocalStart - 0.05 : duration,
-      localEnd + ENERGY_MAX_EXTENSION_SECONDS,
-    );
-    const sequenceInterval = realignedSequence?.[index] ?? null;
-    const activeInterval =
-      sequenceInterval ??
-      findBestActiveInterval(
-        intervals,
-        searchStart,
-        searchEnd,
-        localStart,
-        localEnd,
-      );
-
-    if (!activeInterval) {
-      previousEnd = segment.end;
-      return segment;
-    }
-
-    const sequenceEndBound =
-      sequenceInterval && localEnd >= activeInterval.start
-        ? timelineOffset + localEnd + ENERGY_MAX_EXTENSION_SECONDS
-        : timelineOffset + duration;
-    const nextSequenceStart = realignedSequence?.[index + 1]?.start;
-    const refinedStart = Math.max(
-      timelineOffset,
-      previousEnd + 0.01,
-      timelineOffset + activeInterval.start - ENERGY_BOUNDARY_PADDING_SECONDS,
-    );
-    const sequenceDurationBound = sequenceInterval
-      ? refinedStart + getEstimatedCaptionSpeechSeconds(segment.text)
-      : timelineOffset + duration;
-    const refinedEnd = Math.min(
-      timelineOffset + duration,
-      sequenceInterval
-        ? timelineOffset + (Number.isFinite(nextSequenceStart) ? nextSequenceStart - 0.05 : duration)
-        : timelineOffset + localEnd + ENERGY_MAX_EXTENSION_SECONDS,
-      sequenceEndBound,
-      sequenceDurationBound,
-      sequenceInterval ? timelineOffset + duration : timelineOffset + nextLocalStart - 0.05,
-      Math.max(refinedStart + MIN_CAPTION_DURATION, timelineOffset + activeInterval.end + 0.16),
-    );
-
-    if (refinedEnd - refinedStart < MIN_CAPTION_DURATION) {
-      previousEnd = segment.end;
-      return segment;
-    }
-
-    previousEnd = refinedEnd;
-    return {
-      ...segment,
-      start: refinedStart,
-      end: refinedEnd,
-      rawStart: segment.rawStart ?? segment.start,
-      rawEnd: segment.rawEnd ?? segment.end,
-      timingSource: "asr-energy",
-    };
-  });
 }
 
 function normalizeTokenId(value) {
@@ -567,6 +252,7 @@ async function getTranscriber(onProgress) {
         const reportModelLoadProgress = createModelLoadProgressCallback(onProgress);
         return pipeline("automatic-speech-recognition", modelId, {
           dtype: "q8",
+          revision: AUTOMATIC_CAPTION_MODEL_REVISION,
           device: "wasm",
           progress_callback: reportModelLoadProgress,
         });
@@ -643,8 +329,9 @@ function getAsrWorker() {
   return asrWorker;
 }
 
-function transcribeAudioInWorker(audio, { onProgress, preferredLanguage }) {
-  if (shouldSkipAsrWorker) {
+function transcribeAudioInWorker(audio, { onProgress, preferredLanguage, signal, requireWorker = false }) {
+  throwIfAborted(signal);
+  if (shouldSkipAsrWorker && !requireWorker) {
     return Promise.reject(new Error("本轮已停用自动字幕 Worker。"));
   }
 
@@ -656,11 +343,20 @@ function transcribeAudioInWorker(audio, { onProgress, preferredLanguage }) {
   const requestId = makeId("asr");
   const transferableAudio = audio.slice();
   return new Promise((resolve, reject) => {
+    const abort = () => {
+      // A terminating cancellation must never fall through to main-thread ASR.
+      const error = new DOMException("Cancelled", "AbortError");
+      asrWorker?.terminate();
+      asrWorker = null;
+      rejectWorkerRequests(error);
+    };
+    const cleanup = () => signal?.removeEventListener("abort", abort);
     workerRequests.set(requestId, {
-      resolve,
-      reject,
+      resolve: (value) => { cleanup(); resolve(value); },
+      reject: (error) => { cleanup(); reject(error); },
       onProgress,
     });
+    signal?.addEventListener("abort", abort, { once: true });
 
     worker.postMessage(
       {
@@ -689,7 +385,7 @@ async function transcribeAudioOnMainThread(audio, { onProgress, preferredLanguag
     no_repeat_ngram_size: 3,
     repetition_penalty: 1.15,
     stride_length_s: 5,
-    return_timestamps: true,
+    return_timestamps: "word",
   };
   if (isMultilingualWhisper(transcriber)) {
     transcriptionOptions.language = languageResult.language;
@@ -744,50 +440,51 @@ function resetAsrWorker() {
   workerRequests.clear();
 }
 
-export async function transcribeAudioToCaptionSegments(
+async function runTranscription(
   blob,
-  { onProgress, preferredLanguage = "zh", timelineOffset = 0 } = {},
+  { onProgress, preferredLanguage = "zh", timelineOffset = 0, grouping = "phrases", signal, requireWorker = false } = {},
 ) {
+  throwIfAborted(signal);
   onProgress?.({ progress: 5, phase: "解码原声音频" });
   const { audio, duration } = await decodeAudioForAsr(blob);
+  throwIfAborted(signal);
   if (!audio.length || !duration) {
     throw new Error("没有检测到可识别的音频。");
   }
 
   let result;
   try {
-    result = await transcribeAudioInWorker(audio, { onProgress, preferredLanguage });
+    result = await transcribeAudioInWorker(audio, { onProgress, preferredLanguage, signal, requireWorker });
     result.source = "worker";
   } catch (error) {
+    throwIfAborted(signal);
+    if (error?.name === "AbortError" || requireWorker) throw error;
     console.warn("ASR worker failed, falling back to main thread.", error);
     onProgress?.({ progress: 8, phase: "Worker 不可用，切换主线程自动字幕" });
     result = await transcribeAudioOnMainThread(audio, { onProgress, preferredLanguage });
   }
+  throwIfAborted(signal);
 
   if (result.source === "worker" && isSuspiciousTranscript(result.output, result.language, preferredLanguage)) {
+    // Agent jobs require a cancellable Worker. Preserve the normal UI fallback,
+    // but never start uncancellable inference after a reviewed Worker-only plan.
+    if (requireWorker) throw new Error("ASR_UNRELIABLE_TRANSCRIPT");
     console.warn("ASR worker returned a suspicious transcript, retrying on the WASM main thread.", result.output);
     shouldSkipAsrWorker = true;
     resetAsrWorker();
     onProgress?.({ progress: 78, phase: "Worker 结果异常，切换稳定 WASM 重新识别" });
     result = await transcribeAudioOnMainThread(audio, { onProgress, preferredLanguage });
   }
+  throwIfAborted(signal);
 
   if (isSuspiciousTranscript(result.output, result.language, preferredLanguage)) {
     throw new Error("自动字幕结果像是识别错语言了，请刷新后重新生成一次。");
   }
 
-  const rawSegments = outputToCaptionSegments(
-    result.output,
-    duration,
-    Math.max(0, timelineOffset || 0),
-    result.language,
-  );
-  const segments = refineCaptionSegmentsWithAudioEnergy(
-    rawSegments,
-    audio,
-    duration,
-    Math.max(0, timelineOffset || 0),
-  );
+  const segments = captionSegmentsFromWords(result.output?.chunks, duration, {
+    timelineOffset, grouping,
+    normalizeText: (text) => normalizeAsrText(text, result.language),
+  });
   if (!segments.length) {
     throw new Error("没有识别到可用字幕。");
   }
@@ -800,4 +497,14 @@ export async function transcribeAudioToCaptionSegments(
     language: result.language,
     languageDetected: result.languageDetected,
   };
+}
+
+export async function transcribeAudioToCaptionSegments(blob, options = {}) {
+  if (transcriptionActive) throw Object.assign(new Error("EDITOR_BUSY"), { code: "EDITOR_BUSY" });
+  transcriptionActive = true;
+  try {
+    return await runTranscription(blob, options);
+  } finally {
+    transcriptionActive = false;
+  }
 }

@@ -1,6 +1,11 @@
+import { CAPTION_GROUPING_COPY } from "./i18nCaptionGrouping.js";
+import { TIMELINE_GAIN_COPY } from "./i18nTimelineGain.js";
+import { SILENCE_REMOVAL_COPY } from "./i18nSilenceRemoval.js";
 import { I18N_COMPLETION_COPY } from "./i18nCompletion.js";
 import { EFFECTS_LOCALIZED_COPY } from "./i18nEffects.js";
 import { DENOISE_HUB_HINT_COPY, DENOISE_LOCALIZED_COPY, REPAIR_LOCALIZED_COPY } from "./i18nRepair.js";
+import { TIMELINE_MARKER_COPY } from "./i18nTimelineMarkers.js";
+import { AUDIO_EXPORT_COPY } from "./i18nAudioExport.js";
 
 const PLUGIN_TOOL_COPY = {
   zh: { plugins: "插件" },
@@ -31,17 +36,19 @@ const MEDIA_COMPATIBILITY_COPY = {
 };
 
 const COMMUNITY_LINKS_COPY = {
-  zh: { communityLinks: "社区链接", discordCommunity: "Discord 社区", githubRepository: "GitHub 仓库", resourceLinks: "Timeline Studio 资源" },
-  en: { communityLinks: "Community links", discordCommunity: "Discord community", githubRepository: "GitHub repository", resourceLinks: "Timeline Studio resources" },
-  ja: { communityLinks: "コミュニティリンク", discordCommunity: "Discord コミュニティ", githubRepository: "GitHub リポジトリ", resourceLinks: "Timeline Studio リソース" },
-  ko: { communityLinks: "커뮤니티 링크", discordCommunity: "Discord 커뮤니티", githubRepository: "GitHub 저장소", resourceLinks: "Timeline Studio 리소스" },
-  es: { communityLinks: "Enlaces de la comunidad", discordCommunity: "Comunidad de Discord", githubRepository: "Repositorio de GitHub", resourceLinks: "Recursos de Timeline Studio" },
-  fr: { communityLinks: "Liens communautaires", discordCommunity: "Communauté Discord", githubRepository: "Dépôt GitHub", resourceLinks: "Ressources de Timeline Studio" },
-  de: { communityLinks: "Community-Links", discordCommunity: "Discord-Community", githubRepository: "GitHub-Repository", resourceLinks: "Timeline-Studio-Ressourcen" },
-  pt: { communityLinks: "Links da comunidade", discordCommunity: "Comunidade do Discord", githubRepository: "Repositório do GitHub", resourceLinks: "Recursos do Timeline Studio" },
-  th: { communityLinks: "ลิงก์ชุมชน", discordCommunity: "ชุมชน Discord", githubRepository: "ที่เก็บ GitHub", resourceLinks: "แหล่งข้อมูล Timeline Studio" },
-  vi: { communityLinks: "Liên kết cộng đồng", discordCommunity: "Cộng đồng Discord", githubRepository: "Kho GitHub", resourceLinks: "Tài nguyên Timeline Studio" },
-  ru: { communityLinks: "Ссылки сообщества", discordCommunity: "Сообщество Discord", githubRepository: "Репозиторий GitHub", resourceLinks: "Ресурсы Timeline Studio" },
+  zh: { communityLinks: "社区链接", discordCommunity: "Discord 社区", githubRepository: "GitHub 仓库", xProfile: "X 主页", resourceLinks: "Timeline Studio 资源" },
+  en: { communityLinks: "Community links", discordCommunity: "Discord community", githubRepository: "GitHub repository", xProfile: "X profile", resourceLinks: "Timeline Studio resources" },
+  ja: { communityLinks: "コミュニティリンク", discordCommunity: "Discord コミュニティ", githubRepository: "GitHub リポジトリ", xProfile: "X プロフィール", resourceLinks: "Timeline Studio リソース" },
+  ko: { communityLinks: "커뮤니티 링크", discordCommunity: "Discord 커뮤니티", githubRepository: "GitHub 저장소", xProfile: "X 프로필", resourceLinks: "Timeline Studio 리소스" },
+  es: { communityLinks: "Enlaces de la comunidad", discordCommunity: "Comunidad de Discord", githubRepository: "Repositorio de GitHub", xProfile: "Perfil de X", resourceLinks: "Recursos de Timeline Studio" },
+  fr: { communityLinks: "Liens communautaires", discordCommunity: "Communauté Discord", githubRepository: "Dépôt GitHub", xProfile: "Profil X", resourceLinks: "Ressources de Timeline Studio" },
+  de: { communityLinks: "Community-Links", discordCommunity: "Discord-Community", githubRepository: "GitHub-Repository", xProfile: "X-Profil", resourceLinks: "Timeline-Studio-Ressourcen" },
+  pt: { communityLinks: "Links da comunidade", discordCommunity: "Comunidade do Discord", githubRepository: "Repositório do GitHub", xProfile: "Perfil no X", resourceLinks: "Recursos do Timeline Studio" },
+  th: { communityLinks: "ลิงก์ชุมชน", discordCommunity: "ชุมชน Discord", githubRepository: "ที่เก็บ GitHub", xProfile: "โปรไฟล์ X", resourceLinks: "แหล่งข้อมูล Timeline Studio" },
+  vi: { communityLinks: "Liên kết cộng đồng", discordCommunity: "Cộng đồng Discord", githubRepository: "Kho GitHub", xProfile: "Hồ sơ X", resourceLinks: "Tài nguyên Timeline Studio" },
+  ru: { communityLinks: "Ссылки сообщества", discordCommunity: "Сообщество Discord", githubRepository: "Репозиторий GitHub", xProfile: "Профиль X", resourceLinks: "Ресурсы Timeline Studio" },
+  it: { xProfile: "Profilo X" },
+  id: { xProfile: "Profil X" },
 };
 
 const AUDIO_SPATIAL_COPY = {
@@ -302,6 +309,8 @@ export const APP_LANGUAGES = [
   { id: "th", name: "Thai", nativeName: "ไทย", hint: "Thai" },
   { id: "vi", name: "Vietnamese", nativeName: "Tiếng Việt", hint: "Vietnamese" },
   { id: "ru", name: "Russian", nativeName: "Русский", hint: "Russian" },
+  { id: "it", name: "Italian", nativeName: "Italiano", hint: "Italiano" },
+  { id: "id", name: "Indonesian", nativeName: "Bahasa Indonesia", hint: "Bahasa Indonesia" },
 ];
 
 const CLICK_RIPPLE_COPY = {
@@ -622,6 +631,134 @@ const CORE_LABEL_COPY = {
   th: { smart: "อัจฉริยะ", fit: "พอดี", visualSelectClip: "เลือกคลิปในแทร็กภาพ" },
   vi: { smart: "Thông minh", fit: "Vừa khung", visualSelectClip: "Chọn một clip trong rãnh hình ảnh" },
   ru: { smart: "Умные", fit: "Вписать", visualSelectClip: "Выберите клип на видеодорожке" },
+  it: { smart: "Smart", fit: "Adatta", visualSelectClip: "Seleziona una clip nella traccia video", complete: "Completa", cancel: "Annulla", reset: "Ripristina", apply: "Applica" },
+  id: { smart: "Cerdas", fit: "Sesuaikan", visualSelectClip: "Pilih klip di trek visual", complete: "Selesai", cancel: "Batal", reset: "Atur ulang", apply: "Terapkan" },
+};
+
+const LOCALIZATION_REVIEW_COPY = {
+  it: {
+    browserLocalVoice: "Salvata in questo browser",
+    builtInVoices: "Voci integrate",
+    canvasRatio: "Proporzioni della tela",
+    cloneVoiceDeleted: "Profilo vocale eliminato",
+    cloneVoices: "Voci clonate",
+    discordCommunity: "Community Discord",
+    duplicateTrack: "Duplica la traccia selezionata",
+    exportCaptions: "Esporta sottotitoli",
+    fitTimeline: "Adatta la timeline",
+    lock: "Blocca",
+    unlock: "Sblocca",
+    rippleEditingOff: "Attiva il montaggio ripple",
+    rippleEditingOn: "Montaggio ripple attivo",
+    rippleEditingEnabled: "Montaggio ripple attivato: le modifiche alla traccia principale spostano le clip sbloccate a destra",
+    rippleEditingDisabled: "Montaggio ripple disattivato",
+    shortcutSplit: "Dividi in corrispondenza dell’indicatore di riproduzione",
+    shortcutDuplicate: "Duplica la clip selezionata",
+    shortcutDelete: "Elimina la clip selezionata",
+    shortcutUndo: "Annulla",
+    shortcutRedo: "Ripeti",
+    shortcutZoomOut: "Riduci la timeline",
+    shortcutZoomIn: "Ingrandisci la timeline",
+    shortcutFitTimeline: "Adatta la timeline",
+    shortcutSelectLeft: "Seleziona tutto a sinistra",
+    shortcutSelectRight: "Seleziona tutto a destra",
+    smartFrameAfter: "Risultato dell’inquadratura",
+    smartFrameAnalyzeAgain: "Analizza di nuovo la clip",
+    smartFrameAnalyzeClip: "Analizza e genera l’anteprima dell’inquadratura",
+    smartFrameAnchors: "Punti di rilevamento",
+    smartFrameBefore: "Immagine originale",
+    smartFrameCancelAnalysis: "Annulla analisi",
+    smartFrameClipAnalysis: "Analisi della clip",
+    smartFrameCompare: "Confronto prima e dopo",
+    smartFrameCurrentClip: "Clip corrente",
+    smartFrameCurrentClipHint: "Rileva il soggetto a intervalli, ne segue il movimento con il flusso ottico e genera un percorso di ritaglio uniforme.",
+    smartFrameFlowFrames: "Fotogrammi con flusso ottico",
+    smartFrameGpuPreferred: "Rilevamento WebGPU preferito · compatibilità WASM automatica",
+    smartFrameLegacyRuntime: "Risultato precedente · rianalizza per attivare WebGPU",
+    smartFrameLocalNote: "I media restano nel browser; anteprima, ripristino del progetto ed esportazione usano lo stesso percorso di ritaglio.",
+    smartFrameModelSetup: "Preparazione del modello",
+    smartFrameMotion: "Inseguimento del soggetto",
+    smartFrameMotionHint: "Ricalcola solo il percorso senza scaricare nuovamente il modello",
+    smartFramePadding: "Margine del soggetto",
+    smartFramePathPoints: "Fotogrammi chiave del percorso",
+    smartFrameRemove: "Rimuovi Smart Frame dalla clip corrente",
+    smartFrameSafeContain: "Il rapporto corrente non consente di mantenere tutta la testa con il solo ritaglio; è stata attivata una composizione adattiva. Gli altri rapporti continuano a seguire il soggetto in modo indipendente.",
+    smartFrameSelectClip: "Seleziona prima una clip immagine o video",
+    smartFrameSelectClipHint: "Smart Frame modifica soltanto la clip selezionata nella traccia video.",
+    smartFrameTargetRatio: "Rapporto di destinazione",
+    smartFrameWasmRuntime: "Modalità compatibilità WASM",
+    smartFrameWebGpuRuntime: "Rilevamento soggetto WebGPU · flusso ottico WASM",
+    voiceSelected: "Voce selezionata",
+    captionDefaultStyle: "Stile sottotitoli predefinito",
+    captionCurrentCaption: "Sottotitolo corrente",
+    captionList: "Elenco sottotitoli",
+    captionTools: "Strumenti sottotitoli",
+    captionScriptLabel: "Testo del sottotitolo",
+    captionTrackLocked: "Sblocca la traccia dei sottotitoli per aggiungerne uno",
+  },
+  id: {
+    browserLocalVoice: "Disimpan di browser ini",
+    builtInVoices: "Suara bawaan",
+    canvasRatio: "Rasio kanvas",
+    cloneVoiceDeleted: "Profil suara dihapus",
+    cloneVoices: "Suara kloning",
+    discordCommunity: "Komunitas Discord",
+    duplicateTrack: "Gandakan trek yang dipilih",
+    exportCaptions: "Ekspor takarir",
+    fitTimeline: "Sesuaikan linimasa",
+    lock: "Kunci",
+    unlock: "Buka kunci",
+    trackActions: "Tindakan trek",
+    rippleEditingOff: "Aktifkan pengeditan ripple",
+    rippleEditingOn: "Pengeditan ripple aktif",
+    rippleEditingEnabled: "Pengeditan ripple diaktifkan: perubahan pada trek utama menggeser klip yang tidak terkunci di sebelah kanan",
+    rippleEditingDisabled: "Pengeditan ripple dinonaktifkan",
+    shortcutSplit: "Pisahkan di posisi playhead",
+    shortcutDuplicate: "Gandakan klip yang dipilih",
+    shortcutDelete: "Hapus klip yang dipilih",
+    shortcutUndo: "Urungkan",
+    shortcutRedo: "Ulangi",
+    shortcutZoomOut: "Perkecil linimasa",
+    shortcutZoomIn: "Perbesar linimasa",
+    shortcutFitTimeline: "Sesuaikan linimasa",
+    shortcutSelectLeft: "Pilih semua di kiri",
+    shortcutSelectRight: "Pilih semua di kanan",
+    smartFrameAfter: "Hasil komposisi",
+    smartFrameAnalyzeAgain: "Analisis ulang klip saat ini",
+    smartFrameAnalyzeClip: "Analisis dan buat pratinjau komposisi",
+    smartFrameAnchors: "Titik deteksi",
+    smartFrameBefore: "Gambar asli",
+    smartFrameCancelAnalysis: "Batalkan analisis",
+    smartFrameClipAnalysis: "Analisis klip",
+    smartFrameCompare: "Perbandingan sebelum dan sesudah",
+    smartFrameCurrentClip: "Klip saat ini",
+    smartFrameCurrentClipHint: "Mendeteksi subjek secara berkala, melacak gerakannya dengan aliran optik, lalu membuat jalur pemotongan yang halus.",
+    smartFrameFlowFrames: "Bingkai aliran optik",
+    smartFrameGpuPreferred: "Utamakan deteksi WebGPU · kompatibilitas WASM otomatis",
+    smartFrameLegacyRuntime: "Hasil analisis lama · analisis ulang untuk mengaktifkan WebGPU",
+    smartFrameLocalNote: "Media tetap berada di browser; pratinjau, pemulihan proyek, dan ekspor menggunakan jalur pemotongan yang sama.",
+    smartFrameModelSetup: "Penyiapan model",
+    smartFrameMotion: "Pelacakan subjek",
+    smartFrameMotionHint: "Hanya menghitung ulang jalur tanpa mengunduh ulang model",
+    smartFramePadding: "Ruang di sekitar subjek",
+    smartFramePathPoints: "Bingkai utama jalur",
+    smartFrameRemove: "Hapus Bingkai Cerdas dari klip saat ini",
+    smartFrameSafeContain: "Rasio saat ini tidak dapat mempertahankan seluruh kepala hanya dengan pemotongan, jadi komposisi panggung adaptif digunakan. Rasio lain tetap mengikuti subjek secara mandiri.",
+    smartFrameSelectClip: "Pilih klip gambar atau video terlebih dahulu",
+    smartFrameSelectClipHint: "Bingkai Cerdas hanya mengubah klip yang dipilih di trek visual.",
+    smartFrameTargetRatio: "Rasio target",
+    smartFrameWasmRuntime: "Mode kompatibilitas WASM",
+    smartFrameWebGpuRuntime: "Deteksi subjek WebGPU · aliran optik WASM",
+    voiceSelected: "Suara dipilih",
+    captionDefaultStyle: "Gaya takarir default",
+    captionCurrentCaption: "Takarir saat ini",
+    captionList: "Daftar takarir",
+    captionTools: "Alat takarir",
+    captionScriptLabel: "Teks takarir",
+    captionTrackLocked: "Buka kunci trek takarir untuk menambahkan takarir",
+    captionVoiceEmptyHint: "Pilih klip takarir di linimasa terlebih dahulu.",
+    captionVoiceHint: "Buat suara hanya untuk takarir yang dipilih dan sejajarkan dengan awal takarir.",
+  },
 };
 
 const MOBILE_DRAWER_COPY = {
@@ -3263,6 +3400,88 @@ Object.assign(UI_COPY, {
     voiceTrack: "Lồng tiếng",
     musicTrack: "Nhạc nền",
   },
+  it: {
+    ...UI_COPY.en,
+    languageTitle: "Scegli la lingua dell’interfaccia",
+    languageSubtitle: "La scelta viene salvata e usata automaticamente al prossimo avvio.",
+    languageSaved: "Puoi cambiarla in seguito nelle Impostazioni",
+    projectTitle: "Progetto video AI",
+    autosave: "Salvataggio automatico",
+    undo: "Annulla",
+    redo: "Ripeti",
+    preview: "Anteprima",
+    pause: "Pausa",
+    play: "Riproduci",
+    exporting: "Esportazione",
+    exportMp4: "Esporta MP4",
+    settings: "Impostazioni",
+    media: "Media",
+    text: "Testo",
+    caption: "Sottotitoli",
+    audio: "Audio",
+    transition: "Transizioni",
+    effects: "Effetti",
+    stickers: "Adesivi",
+    filters: "Filtri",
+    uploadTab: "Carica",
+    libraryTab: "Libreria",
+    mineTab: "I miei contenuti",
+    previewEmptyTitle: "Carica un’immagine o un video per iniziare",
+    previewEmptySubtitle: "La timeline è vuota",
+    aiVoice: "Voce AI",
+    voiceSynthesis: "Sintesi vocale",
+    myVoices: "Clona voce",
+    history: "Cronologia",
+    inputScript: "Testo",
+    chooseVoice: "Scegli voce",
+    generateVoice: "Genera voce",
+    regenerateVoice: "Rigenera voce",
+    imageTrack: "Video",
+    sourceTrack: "Audio originale",
+    voiceTrack: "Voce fuori campo",
+    musicTrack: "Musica",
+  },
+  id: {
+    ...UI_COPY.en,
+    languageTitle: "Pilih bahasa antarmuka",
+    languageSubtitle: "Pilihan disimpan dan digunakan otomatis saat Anda kembali.",
+    languageSaved: "Dapat diubah nanti di Pengaturan",
+    projectTitle: "Proyek video AI",
+    autosave: "Tersimpan otomatis",
+    undo: "Urungkan",
+    redo: "Ulangi",
+    preview: "Pratinjau",
+    pause: "Jeda",
+    play: "Putar",
+    exporting: "Mengekspor",
+    exportMp4: "Ekspor MP4",
+    settings: "Pengaturan",
+    media: "Media",
+    text: "Teks",
+    caption: "Takarir",
+    audio: "Audio",
+    transition: "Transisi",
+    effects: "Efek",
+    stickers: "Stiker",
+    filters: "Filter",
+    uploadTab: "Unggah",
+    libraryTab: "Pustaka",
+    mineTab: "Aset saya",
+    previewEmptyTitle: "Unggah gambar atau video untuk memulai",
+    previewEmptySubtitle: "Timeline masih kosong",
+    aiVoice: "Suara AI",
+    voiceSynthesis: "Sintesis suara",
+    myVoices: "Kloning suara",
+    history: "Riwayat",
+    inputScript: "Naskah",
+    chooseVoice: "Pilih suara",
+    generateVoice: "Buat suara",
+    regenerateVoice: "Buat ulang suara",
+    imageTrack: "Visual",
+    sourceTrack: "Audio asli",
+    voiceTrack: "Sulih suara",
+    musicTrack: "Musik",
+  },
 });
 
 export const OPTION_COPY = {
@@ -3340,6 +3559,8 @@ export const LANGUAGE_FALLBACKS = {
   th: "en",
   vi: "en",
   ru: "en",
+  it: "en",
+  id: "en",
 };
 
 export function getStoredLanguage() {
@@ -3360,6 +3581,9 @@ export function getCopyLanguage(languageId) {
 }
 
 export function createTranslator(languageId) {
+  const pauseCopy = SILENCE_REMOVAL_COPY[languageId] ?? SILENCE_REMOVAL_COPY.en;
+  const audioExportCopy = AUDIO_EXPORT_COPY[languageId] ?? AUDIO_EXPORT_COPY.en;
+  const markerCopy = TIMELINE_MARKER_COPY[languageId] ?? TIMELINE_MARKER_COPY.en;
   const copyLanguage = getCopyLanguage(languageId);
   const copy = UI_COPY[copyLanguage] ?? UI_COPY.en;
   const fallback = UI_COPY.en;
@@ -3375,7 +3599,8 @@ export function createTranslator(languageId) {
   const mobileDrawerCopy = MOBILE_DRAWER_COPY[languageId] ?? MOBILE_DRAWER_COPY.en;
   const mobileClipActionCopy = MOBILE_CLIP_ACTION_COPY[languageId] ?? MOBILE_CLIP_ACTION_COPY.en;
   const mobileStickerCopy = MOBILE_STICKER_COPY[languageId] ?? MOBILE_STICKER_COPY.en;
-  const completionCopy = globalThis.__GENERATING_I18N__ ? {} : I18N_COMPLETION_COPY[languageId] ?? I18N_COMPLETION_COPY.en ?? {};
+  const completionCopy = globalThis.__GENERATING_I18N__ ? {} : I18N_COMPLETION_COPY[languageId] ?? {};
+  const reviewedCopy = LOCALIZATION_REVIEW_COPY[languageId] ?? {};
   const repairCopy = { ...REPAIR_COPY.en, ...(REPAIR_COPY[languageId] ?? {}), ...(REPAIR_LOCALIZED_COPY[languageId] ?? {}), ...(DENOISE_LOCALIZED_COPY[languageId] ?? DENOISE_LOCALIZED_COPY.en), ...(DENOISE_HUB_HINT_COPY[languageId] ?? DENOISE_HUB_HINT_COPY.en) };
   const projectChromeCopy = PROJECT_CHROME_COPY[languageId] ?? PROJECT_CHROME_COPY.en;
   const coreLabelCopy = CORE_LABEL_COPY[languageId] ?? CORE_LABEL_COPY.en;
@@ -3392,8 +3617,8 @@ export function createTranslator(languageId) {
     AUTO_EDIT_REVIEW_COPY, AUTO_EDIT_FLOW_COPY, AUTO_EDIT_SEGMENT_COPY,
     AUTO_EDIT_RESULT_COPY, IMAGE_AI_CAPTION_COPY, PICTURE_IN_PICTURE_COPY, EFFECTS_WORKSPACE_COPY, VECTOR_STATE_COPY, VECTOR_DOCUMENT_COPY, VECTOR_ADVANCED_COPY,
     SRT_IMPORT_COPY, CLICK_RIPPLE_COPY,
-  ].map((source) => source[languageId] ?? {}));
-  return (key, fallbackText) => coreLabelCopy[key] ?? repairCopy[key] ?? specializedCopy[key] ?? exportOptionsCopy[key] ?? EXPORT_OPTIONS_COPY.en[key] ?? exportExtraStatusCopy[key] ?? EXPORT_EXTRA_STATUS_COPY.en[key] ?? projectChromeCopy[key] ?? PROJECT_CHROME_COPY.en[key] ?? captionAudioLinkCopy[key] ?? CAPTION_AUDIO_LINK_COPY.en[key] ?? ttsBackendCopy[key] ?? TTS_BACKEND_COPY.en[key] ?? mobileStickerCopy[key] ?? MOBILE_STICKER_COPY.en[key] ?? mobileClipActionCopy[key] ?? MOBILE_CLIP_ACTION_COPY.en[key] ?? mobileDrawerCopy[key] ?? MOBILE_DRAWER_COPY.en[key] ?? srtImportCopy[key] ?? exportCopy[key] ?? EXPORT_RENDER_COPY.en[key] ?? assetPreviewCopy[key] ?? ASSET_PREVIEW_COPY.en[key] ?? assetDropCopy[key] ?? ASSET_DROP_COPY.en[key] ?? autoCaptionStatusCopy[key] ?? AUTO_CAPTION_STATUS_COPY.en[key] ?? completionCopy[key] ?? copy[key] ?? fallback[key] ?? UI_COPY.zh[key] ?? fallbackText ?? key;
+  ].map((source) => ({ ...(source.en ?? {}), ...(source[languageId] ?? {}) })));
+  return (key, fallbackText) => (CAPTION_GROUPING_COPY[languageId] ?? CAPTION_GROUPING_COPY.en)[key] ?? (TIMELINE_GAIN_COPY[languageId] ?? TIMELINE_GAIN_COPY.en)[key] ?? pauseCopy[key] ?? audioExportCopy[key] ?? markerCopy[key] ?? reviewedCopy[key] ?? completionCopy[key] ?? coreLabelCopy[key] ?? repairCopy[key] ?? specializedCopy[key] ?? exportOptionsCopy[key] ?? EXPORT_OPTIONS_COPY.en[key] ?? exportExtraStatusCopy[key] ?? EXPORT_EXTRA_STATUS_COPY.en[key] ?? projectChromeCopy[key] ?? PROJECT_CHROME_COPY.en[key] ?? captionAudioLinkCopy[key] ?? CAPTION_AUDIO_LINK_COPY.en[key] ?? ttsBackendCopy[key] ?? TTS_BACKEND_COPY.en[key] ?? mobileStickerCopy[key] ?? MOBILE_STICKER_COPY.en[key] ?? mobileClipActionCopy[key] ?? MOBILE_CLIP_ACTION_COPY.en[key] ?? mobileDrawerCopy[key] ?? MOBILE_DRAWER_COPY.en[key] ?? srtImportCopy[key] ?? exportCopy[key] ?? EXPORT_RENDER_COPY.en[key] ?? assetPreviewCopy[key] ?? ASSET_PREVIEW_COPY.en[key] ?? assetDropCopy[key] ?? ASSET_DROP_COPY.en[key] ?? autoCaptionStatusCopy[key] ?? AUTO_CAPTION_STATUS_COPY.en[key] ?? copy[key] ?? fallback[key] ?? UI_COPY.zh[key] ?? fallbackText ?? key;
 }
 
 export function translateOptionName(languageId, name) {

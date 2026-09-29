@@ -35,7 +35,7 @@ export function useAutoCaptions(d) {
         ? await sliceAudioBlob(inputBlob, options.sourceStart || 0, options.duration)
         : inputBlob;
       const result = await transcribeAudioToCaptionSegments(clipBlob, {
-        preferredLanguage: d.uiLanguage, timelineOffset,
+        preferredLanguage: d.uiLanguage, timelineOffset, grouping: options.grouping,
         onProgress: ({ progress, phase }) => { d.setProgress((current) => Math.max(current, progress)); d.setStatusText(localizeAutoCaptionPhase(phase, d.t)); },
       });
       d.setCaptionSegments((segments) => {
@@ -54,7 +54,8 @@ export function useAutoCaptions(d) {
       d.setStatus("done"); d.setStatusText(complete); d.setProgress(100);
       d.seekTo(result.segments[0]?.start ?? timelineOffset); d.notify(complete);
     } catch (error) {
-      console.error(error); d.setStatus("error"); d.setStatusText(error instanceof Error ? error.message : d.t("autoCaptionsFailed"));
+      console.error(error); d.setStatus("error"); d.setStatusText(/ASR_WORD_TIMING_UNAVAILABLE|alignment_heads|attentions|token-level timestamps/i.test(error?.message || "")
+        ? d.t("captionTimingUnavailable") : d.t("autoCaptionsFailed"));
       d.setProgress(0); d.notify(d.t("autoCaptionsFailedHint"));
     }
   }, [d]);

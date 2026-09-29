@@ -19,11 +19,11 @@ L’utilisateur assume seul toute responsabilité juridique découlant du non-re
 
 ## Actualités du projet
 
-- **1er septembre 2026 — Vidéo rapidement prête sans perdre la synchronisation :** les imports locaux et en ligne n’attendent plus que quelques images d’amorce à PTS réel, adaptées à la machine, au lieu de bloquer sur 120 à 240 vignettes. Les images exactes affinent ensuite la zone visible en priorité puis les cellules hors écran par subdivision des milieux. Chaque vignette utilise la dernière image antérieure au temps source demandé, la tête de lecture suit l’aperçu en direct et les mises à jour d’arrière-plan s’interrompent pendant le déplacement.
-- **29 août 2026 — Connecteurs de génération locale :** ajout de plugins séparés pour ComfyUI et Stable Diffusion WebUI/Forge. ComfyUI exécute des workflows API Format sur une adresse de bouclage et importe les images ou vidéos ; WebUI utilise les vraies API txt2img/img2img. Les résultats rejoignent automatiquement My assets et l’intégration générique Hugging Face Spaces a été supprimée.
-- **28 août 2026 — Débruitage intelligent local au navigateur :** Visuels → Réparation IA propose DRUNet avec comparaison d’image, quatre intensités, conservation de l’audio source et application réversible. Les clips complets passent désormais à leur cadence source dans un flux WebCodecs qui chevauche décodage et inférence, conserve la session WebGPU, réutilise canevas, tenseurs et tampons de pixels, et réemploie prudemment le résidu pour les images voisines peu différentes ; PNG/FFmpeg reste disponible en secours. Disponible sur ordinateur et mobile dans les 11 langues.
-- **28 août 2026 — Préparation vidéo haute fidélité sur la timeline :** les nouvelles vidéos restent dans un état de chargement visible pendant le décodage des métadonnées et des vignettes PTS réelles, évitant les grands blocs provisoires étirés. La pellicule utilise des images source de 180px, une densité lisible adaptée au zoom, une correspondance temporelle exacte sous la tête de lecture et un recadrage centré sans bandes noires pour les vidéos verticales.
-- **28 août 2026 — Progression en direct des modèles intégrés à Chrome :** le montage automatique affiche séparément la progression Chrome réelle, l’état d’achèvement et le numéro d’essai des modèles de compréhension visuelle et de traduction des sous-titres. Si Chrome n’émet aucune progression pendant 45 secondes, l’interface signale le blocage et propose Réessayer le téléchargement, déclenché par l’utilisateur afin de conserver l’activation requise et l’état partiel de Chrome.
+- **2026-09-27** — Les sous-titres automatiques utilisent le minutage des mots, avec découpage en phrases courtes ou mot par mot pour les vidéos verticales. Aperçu, export et SRT partagent les mêmes clips modifiables ; commandes en 13 langues. La voix IA découpe aussi les textes longs avant la synthèse et cale chaque sous-titre sur son audio, y compris pour le sous-titre sélectionné. L’affichage et le SRT masquent les virgules, points et points-virgules finaux, tout en conservant les signes expressifs et le texte original pour l’édition et la voix.
+- **2026-09-27** — La lecture sur ordinateur change de page au seuil de 85%, ramenant la tête à 20%. Le défilement horizontal manuel suspend le suivi ; le retour à la tête ou la reprise de lecture le rétablit. La pause conserve la vue.
+- **2026-09-27** — Clips vidéo unifiés : vidéo principale et incrustations réunissent nom, vignettes et onde audio source. Réglez les dB par clip sur la forme d’onde, avec un gain identique en aperçu et à l’export, conservé après séparation audio. Interface en 13 langues. Toutes les pistes audio affichent une onde fine alignée en bas, suivant le gain, avec des crêtes orange au-delà du plafond visuel et le style existant préservé. Le déplacement de la tête de lecture actualise l’aperçu sans attendre la confirmation d’affichage ; le relâchement conserve la vérification de l’image exacte.
+- **2026-09-21 — Suppression des pauses :** Smart détecte localement les longues pauses avec Silero VAD. Vérifiez et sélectionnez les coupes du clip principal et de son audio, réglez les seuils et intervalles, utilisez le montage ripple, annulez l’analyse ou la modification. Interface en 13 langues.
+- **2026-09-20 — Alignement de la tête de lecture :** Glisser la tête blanche affiche un aperçu en direct et l’aligne sur les marqueurs et les extrémités des plages, avec un guide commun et l’heure. Maintenez Alt pour la déplacer librement. Les détails affichent Terminé avant modification, puis Appliquer les modifications.
 
 Consultez la [Roadmap](ROADMAP.md) pour les travaux prévus, les [Releases](https://github.com/MartinDelophy/ai-video-editor/releases) pour les changements publiés et les [Issues](https://github.com/MartinDelophy/ai-video-editor/issues) pour les tâches et anomalies.
 
@@ -77,12 +77,12 @@ gh skill install MartinDelophy/ai-video-editor edit-timeline-studio --agent clau
 gh skill install MartinDelophy/ai-video-editor edit-timeline-studio --agent codex --scope user
 ```
 
-Ajoutez `--pin v1.0.0` pour installer la version vérifiée plutôt que de suivre la dernière release. Vous pouvez d’abord l’examiner avec `gh skill preview MartinDelophy/ai-video-editor edit-timeline-studio`.
+Ajoutez `--pin v1.0.8` pour installer la version vérifiée plutôt que de suivre la dernière release. Vous pouvez d’abord l’examiner avec `gh skill preview MartinDelophy/ai-video-editor edit-timeline-studio`.
 
 ## Feuille de route
 
 - **Maintenant :** fiabiliser l’export hors ligne déterministe, améliorer la timeline et étendre les tests de bout en bout dans le navigateur.
-- **Ensuite :** publier l’exécuteur de commandes headless versionné pour le montage piloté par agent et faciliter le partage de modèles de projet réutilisables.
+- **Ensuite :** étendre la parité du rendu headless, les commandes WebMCP vérifiables et le partage de modèles de projet.
 - **Plus tard :** ajouter la révision collaborative, une interface d’extension et davantage de modèles IA validés localement.
 
 Les priorités sont discutées dans [GitHub Discussions](https://github.com/MartinDelophy/ai-video-editor/discussions).

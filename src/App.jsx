@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { X } from "@phosphor-icons/react";
 
 import { LanguageIntro } from "./components/panels.jsx";
@@ -12,6 +12,8 @@ import { FirstVisualGuide } from "./components/FirstVisualGuide.jsx";
 import { MiganRepairDialog } from "./components/MiganRepairDialog.jsx";
 import { NanoVsrRestorationDialog } from "./components/NanoVsrRestorationDialog.jsx";
 import { SmartDenoiseDialog } from "./components/SmartDenoiseDialog.jsx";
+import { WebMcpReview, WebMcpAiStatus } from "./components/WebMcpReview.jsx";
+import ProjectImportOverlay from "./components/ProjectImportOverlay.jsx";
 import {
   canShowFirstVisualGuide,
   FIRST_VISUAL_GUIDE_MOBILE_QUERY,
@@ -34,6 +36,10 @@ import { useVoiceGeneration } from "./hooks/useVoiceGeneration.js";
 import { useVoiceProfiles } from "./hooks/useVoiceProfiles.js";
 import { useAutoCaptions } from "./hooks/useAutoCaptions.js";
 import { useAutoEdit } from "./hooks/useAutoEdit.js";
+import { useSilenceRemoval } from "./hooks/useSilenceRemoval.js";
+import { useWebMcpEditor } from "./hooks/useWebMcpEditor.js";
+import { sampleEditorMedia } from "./lib/webMcpMediaSample.js";
+import { browserProjectFingerprint, restoreBrowserProjectMedia } from "./lib/browserEditPlan.js";
 import { useSourceAudioExtraction } from "./hooks/useSourceAudioExtraction.js";
 import { useVocalSeparation } from "./hooks/useVocalSeparation.js";
 import { useAvatarGeneration } from "./hooks/useAvatarGeneration.js";
@@ -67,7 +73,7 @@ import { createVisualTimelineActions } from "./lib/visualTimelineActions.js";
 import { createStickerTimelineActions } from "./lib/stickerTimelineActions.js";
 import { createAssetDropActions } from "./lib/assetDropActions.js";
 import { createEditorCommandActions } from "./lib/editorCommandActions.js";
-import { createTimelineViewModel } from "./lib/timelineViewModel.js";
+import { useTimelineViewModel } from "./lib/timelineViewModel.js";
 import { createTranslator, getStoredLanguage, translateOptionName } from "./i18n.js";
 import { decodeWaveform, downloadBlob } from "./lib/media.js";
 import { useAiMusicGeneration } from "./hooks/useAiMusicGeneration.js";
@@ -192,7 +198,12 @@ export function App() {
     status, statusText, timelineClipDrag, timelineZoom, trackLocks, trackVisibility,
     voiceFilter, voiceTab,
   } = useEditorUiState();
+  const [exportError, setExportError] = useState(null);
   const [userAssets, setUserAssets] = useState([]);
+  const [timelineMarkers, setTimelineMarkers] = useState([]);
+  const timelineMarkerEnd = useMemo(() => timelineMarkers.reduce(
+    (end, marker) => Math.max(end, marker.type === "range" ? marker.endTime : marker.time), 0,
+  ), [timelineMarkers]);
   const { notify, toast } = useToast(2600, uiLanguage || "zh");
   const [previewVideoMediaTime, setPreviewVideoMediaTime] = useState(0);
   const [sourceAudioDragTargetLane, setSourceAudioDragTargetLane] = useState(null);
@@ -212,7 +223,7 @@ export function App() {
     script, imageSrc, visualType, imageDuration, captionPlacement, selectedVoiceId, speed,
     volume, musicName, musicDuration, musicStart, musicVolume, sourceAudioName, sourceAudioDuration,
     sourceAudioStart, sourceAudioVolume, sourceAudioSpatialEffect, sourceAudioSpatialAmount, ratioId, fitMode, selectedFilterId, selectedStickerId,
-    captionSegments, visualSegments, visualOverlaySegments, visionRecords, timelineZoom,
+    captionSegments, visualSegments, visualOverlaySegments, visionRecords, timelineZoom, timelineMarkers,
   ]);
 
   const {
@@ -237,7 +248,10 @@ export function App() {
     setSelectedLibraryAssetId,
     setUserAssets,
   });
-  const { redo, undo } = useEditorHistory({
+  const { redo, undo, checkpoint: checkpointHistory, signature: historySignature } = useEditorHistory({
+    autoRatioSourceKeyRef,
+    timelineMarkers, setTimelineMarkers, ratioId, setRatioId,
+    captionStylePresetId, captionStylePresets, setCaptionStylePresetId, setCaptionStylePresets,
     audioSegments, captionPlacement, captionPosition, captionSegments, captionSize,
     captionStyle, captionsEnabled, currentTime, fitMode, imageClipCount, imageDuration,
     imageMeta, imageName, imageSrc, imageUrlRefs, musicBlob, musicDuration, musicName, musicSegments, musicStart,
@@ -323,6 +337,7 @@ export function App() {
     selectedSticker, selectedStickerSegmentIndex, selectedVisualSegmentIndex, selectedVoice,
     stickerDuration, timelineDuration, visualTimeline, voiceTrackDuration,
   } = useTimelineModel({
+    timelineMarkers,
     audioSegments, captionSegments, currentTime, imageDuration, imageSrc, musicBlob,
     musicDuration, musicTimelineEnd, musicUrl, ratioId, script, selectedAudioSegmentId, selectedFilterId,
     selectedSegmentId, selectedStickerId, selectedStickerSegmentId,
@@ -540,10 +555,14 @@ export function App() {
     notify,
     t,
   });
+  const setSmartFrameRatio = useCallback((nextRatioId) => {
+    setRatioId(nextRatioId);
+    if (nextRatioId !== ratioId) setFitMode("contain");
+  }, [ratioId, setRatioId, setFitMode]);
   const smartFrame = useSmartFrame({
     selectedSegment: selectedVisualSegment,
     ratioId,
-    setRatioId,
+    setRatioId: setSmartFrameRatio,
     setVisualSegments,
     trackLocked: Boolean(trackLocks.image),
     notify,
@@ -716,7 +735,8 @@ export function App() {
       peaks: linkedPiece
         ? sliceSourceAudioPeaks(sourceAudioPeaks, linkedPiece, sourceAudioDuration)
         : sourceAudioPeaks,
-      volume: sourceAudioVolume,
+      volume: linkedPiece?.volume ?? sourceAudioVolume,
+      ...(linkedPiece?.speedCurve ? { speedCurve: linkedPiece.speedCurve } : {}),
       fadeIn: 0,
       fadeOut: 0,
       reversed: false,
@@ -788,7 +808,7 @@ export function App() {
     : selectedTrack === "music" && musicBlob
       ? { ...(selectedMusicSegment ?? musicSegments[0] ?? { id: "music-audio", start: musicStart, duration: musicDuration, sourceStart: 0, sourceDuration: musicDuration, playbackRate: 1 }), blob: musicBlob, name: musicName || t("musicTrack"), segmentId: selectedMusicSegment?.id || musicSegments[0]?.id || "music-audio", track: "music", volume: selectedMusicSegment?.volume ?? musicSegments[0]?.volume ?? musicVolume, canChangeSpeed: true }
       : selectedTrack === "source" && sourceAudioBlob
-        ? { ...(selectedSourceAudioPiece ?? {}), blob: sourceAudioBlob, name: sourceAudioName, start: selectedSourceAudioPiece?.start ?? sourceAudioStart, sourceStart: selectedSourceAudioPiece?.sourceStart ?? 0, duration: selectedSourceAudioPiece?.duration ?? sourceAudioDuration, sourceDuration: selectedSourceAudioPiece?.sourceDuration ?? sourceAudioDuration, playbackRate: selectedSourceAudioPiece?.playbackRate ?? 1, segmentId: selectedSourceAudioSegmentId || "source-audio", track: "source", volume: sourceAudioVolume, spatialEffect: sourceAudioSpatialEffect, spatialAmount: sourceAudioSpatialAmount, canChangeStart: !sourceAudioLinked, canChangeSpeed: Boolean(sourceAudioLinked && selectedSourceAudioPiece), voiceColorOriginalBlob: sourceVoiceColorOriginalRef.current?.blob || null }
+        ? { ...(selectedSourceAudioPiece ?? {}), blob: sourceAudioBlob, name: sourceAudioName, start: selectedSourceAudioPiece?.start ?? sourceAudioStart, sourceStart: selectedSourceAudioPiece?.sourceStart ?? 0, duration: selectedSourceAudioPiece?.duration ?? sourceAudioDuration, sourceDuration: selectedSourceAudioPiece?.sourceDuration ?? sourceAudioDuration, playbackRate: selectedSourceAudioPiece?.playbackRate ?? 1, segmentId: selectedSourceAudioSegmentId || "source-audio", track: "source", volume: selectedSourceAudioPiece?.volume ?? sourceAudioVolume, spatialEffect: sourceAudioSpatialEffect, spatialAmount: sourceAudioSpatialAmount, canChangeStart: !sourceAudioLinked, canChangeSpeed: Boolean(sourceAudioLinked && selectedSourceAudioPiece), voiceColorOriginalBlob: sourceVoiceColorOriginalRef.current?.blob || null }
         : null;
   const separateSelectedAudioVocals = () => selectedAudioToolTarget?.track === "source"
     ? separateSourceVocals()
@@ -967,7 +987,11 @@ export function App() {
       return;
     }
     if (selectedTrack === "source") {
-      if (Number.isFinite(patch.volume)) setSourceAudioVolume(Math.max(0, Math.min(4, patch.volume)));
+      if (Number.isFinite(patch.volume)) {
+        const volume = Math.max(0, Math.min(4, patch.volume));
+        if (sourceAudioLinked && id !== "source-audio") setVisualSegments((items) => items.map((item) => item.id === id ? { ...item, sourceAudioVolume: volume } : item));
+        else setSourceAudioVolume(volume);
+      }
       if (typeof patch.spatialEffect === "string") setSourceAudioSpatialEffect(patch.spatialEffect);
       if (Number.isFinite(patch.spatialAmount)) setSourceAudioSpatialAmount(Math.max(0, Math.min(1, patch.spatialAmount)));
       if (!sourceAudioLinked && Number.isFinite(patch.start)) setSourceAudioStart(Math.max(0, patch.start));
@@ -1044,6 +1068,7 @@ export function App() {
   });
 
   const { getTimelineTimeFromClientX, handlePlayToggle, pauseTimelineMedia, seekTo, startTimelineSeek } = createPlaybackControls({
+    timelineMarkers, setSnapGuide,
     audioSegmentRefs, audioSegments, canPreview, currentTimeRef, currentVisualRange,
     estimatedDuration, isPlaying, musicDuration, musicSegments, musicRef, musicStart, musicUrl, notify,
     linkedSourceAudioSegments, previewVideoRef, previewVisualType, setCurrentTime, setIsPlaying, setPreviewVideoMediaTime, sourceAudioDuration,
@@ -1071,6 +1096,7 @@ export function App() {
   });
 
   const { startAudioSegmentMove, startMusicMove, startSourceAudioMove, startStickerSegmentMove, startStickerSegmentResize } = createTimelineMoveControls({
+    timelineMarkers, timelineDuration,
     audioSegments, captionSegments, captionTargetDuration, estimatedDuration, notify, seekTo, setActiveTool,
     setAudioSegments, setCaptionSegments, setSelectedAudioSegmentId, setSelectedStickerId,
     setSelectedStickerSegmentId, setSelectedTrack, setStickerSegments, setTimelineHorizon,
@@ -1081,6 +1107,7 @@ export function App() {
   });
 
   const startImageResize = createImageResizeControl({
+    timelineMarkers,
     audioBlob, audioDuration, captionDuration, getCurrentVisualAssetSnapshot,
     imageDuration, imageSrc, musicBlob, musicDuration, musicStart, notify, rippleTimelineAfter, script,
     setCurrentTime, setImageClipCount, setImageDuration, setSelectedTrack,
@@ -1229,15 +1256,17 @@ export function App() {
     return { ...overlay, depthAnalysis: resolveDepthAnalysisAtTime(depthRecord, sourceTime) };
   }), [currentTime, depthRecords, previewVisualOverlays]);
 
-  const { handleExportProject, handleImportProject, handleNewProject } = useProjectFiles({
+  const { projectImportProgress, getProjectSnapshot, createCurrentArchive, handleExportProject, handleImportProject, handleNewProject } = useProjectFiles({
+    language: activeLanguage, pauseTimelineMedia, setIsPlaying,
+    timelineMarkers, setTimelineMarkers,
     audioBlob, audioDuration, audioSegments, captionPlacement, captionPosition, captionSegments, captionSize,
     captionStyle, captionsEnabled, captionStyleFallback: captionStyle, clearAllVisionState,
     clearAudioTrack, clearImageTrack, clearMusicTrack, clearSourceAudioTrack, fitMode,
-    imageUrlRefs, musicBlob, musicDuration, musicName, musicStart, musicVolume, notify, projectFileInputRef,
+    imageUrlRefs, musicBlob, musicDuration, musicName, musicSegments, musicStart, musicVolume, notify, projectFileInputRef,
     ratioId, replaceAudio, replaceMusic, replaceSourceAudio, script, selectedFilterId,
     selectedStickerId, selectedTransitionId, selectedVoiceId, setCaptionPlacement,
     setCaptionPosition, setCaptionSegments, setCaptionSize, setCaptionStyle, setCaptionsEnabled,
-    setAudioSegments, setCurrentTime, setFitMode, setImageClipCount, setImageDuration, setMusicStart, setMusicVolume, setSelectedAudioSegmentId,
+    setAudioSegments, setCurrentTime, setFitMode, setImageClipCount, setImageDuration, setMusicSegments, setMusicStart, setMusicVolume, setSelectedAudioSegmentId,
     setRatioId, setScript, setSelectedFilterId, setSelectedSegmentId, setSelectedStickerId,
     setSelectedStickerSegmentId, setSelectedTransitionId, setSelectedVoiceId, setShowFileMenu,
     setSourceAudioAssetId, setSourceAudioLinked, setSourceAudioVolume, setSourceAudioSpatialEffect, setSourceAudioSpatialAmount, setSpeed, setStickerSegments, setTimelineZoom, setTrackLocks, setTrackVisibility,
@@ -1254,7 +1283,7 @@ export function App() {
     playheadPercent, previewFrameStyle, previewRatio, progressPercent,
     renderedVisualSegments, renderedVisualTimeline, showStickerTrack,
     sourceAudioClipPercent, sourceAudioStartPercent,
-  } = createTimelineViewModel({
+  } = useTimelineViewModel({
     assetDragPreview, assetDropTargetTrack, audioBlob, audioDuration, captionSegments,
     captionTargetDuration, captionTimeline, currentTime, draggedAssetId, exportProgress,
     findAssetById, getCurrentVisualAssetSnapshot, imageDuration, imageSrc, musicBlob,
@@ -1274,22 +1303,24 @@ export function App() {
     captionDuration, imageDuration, musicBlob, musicTimelineEnd, sourceAudioBlob,
     sourceAudioTimelineEnd, stickerDuration, visualOverlaySegments, voiceTrackDuration,
   ]);
-  const handleExportVideo = useVideoExport({
+  const videoCompositionContext = {
     audioSegments, captionDuration, captionPlacement, captionPosition, captionSegments, captionTargetDuration,
     captionSize, captionStyle, captionsEnabled, exporting, exportAbortControllerRef, exportStartRef, fitMode,
     imageDuration, imageSrc, musicBlob, musicDuration, musicSegments, musicStart, musicTimelineEnd, musicVolume, notify,
     previewFrameSize, ratio, renderedVisualSegments, script, selectedFilter,
-    selectedSticker, selectedTransitionId, setExporting, setExportPhase,
+    selectedSticker, selectedTransitionId, setExporting, setExportError, setExportPhase,
     setExportProgress, setStatus, setStatusText, sourceAudioBlob, sourceAudioDuration,
-    linkedSourceAudioSegments, sourceAudioLinked, sourceAudioStart, sourceAudioTimelineEnd, sourceAudioVolume, sourceAudioSpatialEffect, sourceAudioSpatialAmount, stickerDuration, stickerSegments,
+    linkedSourceAudioSegments, sourceAudioAssetId, sourceAudioLinked, sourceAudioStart, sourceAudioTimelineEnd, sourceAudioVolume, sourceAudioSpatialEffect, sourceAudioSpatialAmount, stickerDuration, stickerSegments,
     trackVisibility, visionRecords, depthRecords, visualType, voiceTrackDuration, volume, exportSettings: {
       ...exportSettings,
       ...getExportDimensions(ratio, Number(exportSettings.resolution)),
       videoBitsPerSecond: getEffectiveExportBitrate(exportSettings),
     },
-    visualOverlaySegments, t,
-  });
+    visualOverlaySegments, t, language: activeLanguage,
+  };
+  const handleExportVideo = useVideoExport(videoCompositionContext);
   const { startCaptionResize, startTimelineClipDrag } = createTimelineReorderControls({
+    timelineMarkers,
     audioSegments, captionSegments, captionTargetDuration, commitCaptionSegments, commitVisualSegments,
     notify, renderedVisualSegments, seekTo, setSelectedSegmentId, setSelectedTrack,
     setSelectedVisualSegmentId, setTimelineClipDrag, suppressTimelineClipClickRef,
@@ -1298,6 +1329,109 @@ export function App() {
     stickerSegments, sourceAudioDuration, sourceAudioStart, musicDuration, musicStart, musicSegments, currentTime, setSnapGuide,
     visualOverlaySegments, setVisualOverlaySegments, setSelectedVisualOverlayId, trackScrollRef,
   });
+
+  // Browser agents use the live editor action and normal undo history.
+  const getBrowserRuntimeProject = () => ({
+    ...getProjectSnapshot(), visualSegments, visualOverlaySegments, audioSegments, musicSegments,
+    musicBlob, musicUrl, musicPeaks, sourceAudioBlob, sourceAudioUrl, audioBlob,
+  });
+  const applyBrowserReview = (review, message) => {
+    if (!review.hasChanges) throw Object.assign(new Error(), { code: "NO_CHANGES" });
+    const snapshot = getProjectSnapshot();
+    const runtime = getBrowserRuntimeProject();
+    if (review.fingerprint !== browserProjectFingerprint(snapshot, rippleEditing, visualSegments, runtime)) {
+      throw Object.assign(new Error(), { code: "BROWSER_EDIT_STALE_PLAN" });
+    }
+    const firstChanged = review.rows?.find((row) => row.changed);
+    const next = restoreBrowserProjectMedia(review.project, runtime, review.mediaOrigins, userAssets);
+    const nextVisuals = next.visualSegments;
+    const visualsChanged = JSON.stringify(snapshot.visualSegments) !== JSON.stringify(review.project.visualSegments);
+    checkpointHistory();
+    // Reordering existing media keeps the reviewed canvas ratio. Auto-detection
+    // remains available when the user uploads a new first source later.
+    const ratioSource = nextVisuals.find((clip) => clip.width > 0 && clip.height > 0);
+    if (ratioSource) autoRatioSourceKeyRef.current = `${ratioSource.assetId || ratioSource.id}:${ratioSource.width}x${ratioSource.height}`;
+    pauseTimelineMedia();
+    setIsPlaying(false);
+    setScript(next.script);
+    setAudioSegments(next.audioSegments);
+    setCaptionSegments(next.captionSegments);
+    setTimelineMarkers(next.timelineMarkers);
+    setCaptionsEnabled(next.captionsEnabled);
+    setCaptionStyle(next.captionStyle);
+    setCaptionSize(next.captionSize);
+    setCaptionStylePresetId(next.captionStylePresetId);
+    setCaptionPlacement(next.captionPlacement);
+    setCaptionPosition(next.captionPosition);
+    setRatioId(next.ratioId);
+    setFitMode(next.fitMode);
+    setVisualOverlaySegments(next.visualOverlaySegments);
+    setStickerSegments(next.stickerSegments);
+    setMusicSegments(next.musicSegments);
+    setMusicStart(next.musicStart);
+    setMusicVolume(next.musicVolume);
+    setMusicName(next.musicName || "");
+    setMusicDuration(next.musicDuration || 0);
+    if (next.musicBlob !== musicBlob) {
+      const nextMusicUrl = next.musicUrl || (next.musicBlob ? URL.createObjectURL(next.musicBlob) : "");
+      musicUrlRef.current = nextMusicUrl;
+      setMusicBlob(next.musicBlob);
+      setMusicUrl(nextMusicUrl);
+      setMusicPeaks(next.musicPeaks || []);
+    }
+    setSourceAudioStart(next.sourceAudioStart);
+    setTrackVisibility(next.trackVisibility);
+    if (visualsChanged) {
+      if (nextVisuals.length) commitVisualSegments(nextVisuals, message, firstChanged?.index ?? 0);
+      else clearImageTrack(message);
+    } else notify(message);
+    const focusTime = Number.isFinite(review.focusTime) ? review.focusTime : firstChanged?.start ?? currentTime;
+    const nextTime = Math.min(Math.max(0, focusTime), Math.max(0, review.duration));
+    currentTimeRef.current = nextTime;
+    setCurrentTime(nextTime);
+  };
+  const silenceRemoval = useSilenceRemoval({
+    language: activeLanguage, selectedSegment: selectedVisualSegment, visualSegments, projectVersion: historySignature,
+    locked: Boolean(trackLocks.image || sourceAudioBlob && sourceAudioLinked !== false && trackLocks.source),
+    getSnapshot: getProjectSnapshot, getRuntime: getBrowserRuntimeProject,
+    applyReview: applyBrowserReview, rippleEditing, setRippleEditing, seekTo, t,
+  });
+  const webMcp = useWebMcpEditor({
+    language: activeLanguage, visualSegments, visualOverlaySegments, audioSegments, musicSegments,
+    sourceAudioBlob, musicBlob, audioBlob, rippleEditing, getProjectSnapshot,
+    assets: userAssets, getRuntimeProject: getBrowserRuntimeProject,
+    currentTime, duration: exportContentDuration, historySignature,
+    createArchive: createCurrentArchive, download: downloadBlob, notify,
+    exportVideo: handleExportVideo, exportSettings, exportContentDuration, ratio, exporting,
+    applyReview: applyBrowserReview,
+    sampleMedia: (input, options) => sampleEditorMedia(videoCompositionContext, input, options),
+    commitAiVoiceAssets: ({ items }, { signal } = {}) => {
+      if (signal?.aborted) throw Object.assign(new Error("CANCELLED"), { name: "AbortError" });
+      const assets = items.map((item) => {
+        const id = crypto.randomUUID(); const src = URL.createObjectURL(item.blob);
+        imageUrlRefs.current.add(src);
+        return { id, type: "audio", kind: "voiceover", name: item.name, text: item.text,
+          voiceId: item.voiceId, blob: item.blob, src, previewSrc: src, generated: true,
+          duration: item.decoded.duration, peaks: item.decoded.peaks };
+      });
+      setUserAssets((current) => [...assets, ...current]);
+      setActiveTool("media"); setMediaTab("mine");
+      if (assets[0]) setSelectedLibraryAssetId(assets[0].id);
+      return assets.map(({ id, duration }) => ({ id, duration }));
+    },
+    undo: () => { pauseTimelineMedia(); undo(); },
+    seek: (time) => { pauseTimelineMedia(); setIsPlaying(false); seekTo(time, { immediate: true }); },
+    isBusy: () => Boolean(projectImportProgress || exporting || timelineClipDragRef.current || pointerAssetDragRef.current ||
+      isDragging || draggedAssetId || ["generating", "captioning"].includes(status) || visualSegments.some((clip) => clip.preparing) ||
+      visualOverlaySegments.some((clip) => clip.preparing) || visionJob.running || avatarJob.running || autoEdit.job.running),
+  });
+
+  const guardAgentAi = (action) => (...args) => {
+    if (webMcp.isAiRunning()) { notify(webMcp.t("busy")); return; }
+    return action(...args);
+  };
+  const generateVoiceoverWhenIdle = guardAgentAi(generateVoiceover);
+  const generateCaptionsWhenIdle = guardAgentAi(generateCaptionsFromSourceAudio);
 
   return (
     <main className={`app-shell ${isCompactViewport ? "is-compact-workspace" : ""} ${mobilePanel ? `mobile-panel-${mobilePanel}` : ""} ${isCompactViewport && mobileInspectorSection ? `mobile-section-${mobileInspectorSection}` : ""} ${isCompactViewport && mobileInspectorSection === "mask" && (selectedVisualOverlay || selectedVisualSegment)?.mask?.type && (selectedVisualOverlay || selectedVisualSegment).mask.type !== "none" ? "mobile-mask-active" : ""} ${mobilePanelClosing ? "is-mobile-panel-closing" : ""}`} lang={activeLanguage} onDragOver={(event) => {
@@ -1373,6 +1507,9 @@ export function App() {
         projectFileInputRef={projectFileInputRef}
       />
 
+      <WebMcpReview agent={webMcp} language={activeLanguage} />
+      <WebMcpAiStatus agent={webMcp} />
+      <ProjectImportOverlay progress={projectImportProgress} language={activeLanguage} />
       <section className={`editor-grid ${compactRail ? "is-compact-rail" : ""}`}>
         <EditorSidebar model={{
           activeLanguage, activeTool, analyzeCurrentVisual, analyzeEffectVisual, audioBlob, audioDuration,
@@ -1381,7 +1518,7 @@ export function App() {
           captionTargetDuration, captionsEnabled, clearMusicTrack, clearSourceAudioTrack,
           compactRail, currentSegmentIndex, deleteCaptionSegment,
           deleteUserAsset, downloadBlob, draggedAssetId,
-          estimatedDuration, fileInputRef, generateCaptionsFromSourceAudio, handleAssetClick,
+          estimatedDuration, fileInputRef, generateCaptionsFromSourceAudio: generateCaptionsWhenIdle, handleAssetClick,
           handleAssetPointerDown, handleCaptionPositionChange, handleFiles, handleStickerClick, confirmStickerSelection,
           imageSrc, isDragging, mediaTab, musicBlob, musicDuration, musicName, musicVolume,
           libraryType, libraryQuery, setLibraryQuery, selectLibraryType, libraryStatus, libraryError, libraryProvider,
@@ -1417,6 +1554,7 @@ export function App() {
           previewVisualMuted={shouldMuteEmbeddedVideoAudio(previewVisualSegment, {
             sourceAudioBlob,
             sourceAudioAssetId,
+            sourceAudioLinked,
             linkedSegments: linkedSourceAudioSegments,
           })}
           previewTransition={previewTransition}
@@ -1535,7 +1673,7 @@ export function App() {
           setVolume={setVolume}
           progressPercent={progressPercent}
           audioBlob={audioBlob}
-          generateVoiceover={generateVoiceover}
+          generateVoiceover={generateVoiceoverWhenIdle}
           downloadBlob={downloadBlob}
           favoriteVoiceIds={favoriteVoiceIds}
           setFavoriteVoiceIds={setFavoriteVoiceIds}
@@ -1580,13 +1718,14 @@ export function App() {
           seekTo={seekTo}
           sourceAudioBlob={sourceAudioBlob}
           sourceAudioLinked={sourceAudioLinked}
-          generateCaptionsFromSourceAudio={generateCaptionsFromSourceAudio}
+          generateCaptionsFromSourceAudio={generateCaptionsWhenIdle}
           isGeneratingCaptions={status === "captioning"}
           automaticCaptionProgress={status === "captioning" ? progress : 0}
           avatarPanelOpen={avatarPanelOpen}
           smartMode={smartMode}
           aiMusic={aiMusic}
           autoEdit={autoEdit}
+          silenceRemoval={silenceRemoval}
           uiLanguage={activeLanguage}
           captionStyle={captionStyle}
           setCaptionStyle={setCaptionStyle}
@@ -1656,6 +1795,8 @@ export function App() {
       </section>
 
       <Timeline
+        timelineMarkers={timelineMarkers}
+        setTimelineMarkers={setTimelineMarkers}
         t={t}
         trOption={trOption}
         notify={notify}
@@ -1700,9 +1841,13 @@ export function App() {
         trackScrollRef={trackScrollRef}
         startTimelineSeek={startTimelineSeek}
         timelineDuration={timelineDuration}
-        timelineContentDuration={Math.max(estimatedDuration, timelineHorizon)}
+        timelineContentDuration={Math.max(estimatedDuration, timelineHorizon, timelineMarkerEnd)}
         setTimelineHorizon={setTimelineHorizon}
         currentTime={currentTime}
+        currentTimeRef={currentTimeRef}
+        visualPlaybackStartTimeRef={visualPlaybackStartTimeRef}
+        visualPlaybackStartedAtRef={visualPlaybackStartedAtRef}
+        playbackDuration={estimatedDuration}
         previewVideoMediaTime={previewVideoMediaTime}
         playheadPercent={playheadPercent}
         snapGuide={snapGuide}
@@ -1740,7 +1885,7 @@ export function App() {
         builtInImageCaptionAvailable={autoEdit.support.availability === "available"}
         generateImageCaption={autoEdit.generateImageCaption}
         extractVideoSourceAudio={extractVideoSourceAudio}
-        generateCaptionsFromAudioClip={generateCaptionsFromSourceAudio}
+        generateCaptionsFromAudioClip={generateCaptionsWhenIdle}
         separateAudioClipVocals={separateAudioClipVocals}
         audioProcessingBusy={vocalSeparationJob.running || status === "captioning"}
         setSelectedVisualSegmentId={setSelectedVisualSegmentId}
@@ -1758,6 +1903,10 @@ export function App() {
         selectedSegmentId={selectedSegmentId}
         setSelectedSegmentId={setSelectedSegmentId}
         captionTargetDuration={captionTargetDuration}
+        sourceAudioVolume={sourceAudioVolume}
+        setSourceAudioVolume={setSourceAudioVolume}
+        musicVolume={musicVolume}
+        setMusicVolume={setMusicVolume}
         sourceAudioLinked={sourceAudioLinked}
         linkedSourceAudioSegments={linkedSourceAudioSegments}
         sourceAudioBlob={sourceAudioBlob}
@@ -1852,6 +2001,10 @@ export function App() {
       />
       <ExportProgressOverlay
         exporting={exporting}
+        error={exportError}
+        language={activeLanguage}
+        onClose={() => setExportError(null)}
+        onRetry={() => { if (exportError?.settings) void handleExportVideo({ settings: exportError.settings }); }}
         percent={exportPercent}
         phase={exportPhase}
         elapsedSeconds={exportElapsedSeconds}

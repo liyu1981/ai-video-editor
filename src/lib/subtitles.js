@@ -1,3 +1,4 @@
+import { getCaptionDisplayText } from "./captionDisplayText.js";
 import { getCaptionTimeline, makeId } from "./timeline.js";
 
 export const MAX_SRT_FILE_BYTES = 5 * 1024 * 1024;
@@ -69,7 +70,7 @@ export function serializeSrt(captions, targetDuration = 0, options = {}) {
   const rangeEnd = Number.isFinite(requestedEnd) ? Math.max(rangeStart, requestedEnd) : Number.POSITIVE_INFINITY;
   const blocks = [];
   source.forEach((caption, index) => {
-    const text = String(caption?.text ?? "").replace(/\r\n?/g, "\n").trim();
+    const text = getCaptionDisplayText(caption?.text).replace(/\r\n?/g, "\n").trim();
     const range = timeline[index];
     if (caption?.hidden || !text || !range) return;
     const start = Math.max(range.start, rangeStart);

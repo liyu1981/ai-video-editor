@@ -19,11 +19,11 @@ Für sämtliche rechtlichen Folgen eines Verstoßes gegen diese Anforderungen is
 
 ## Projektneuigkeiten
 
-- **1. September 2026 — Schnelle Videobereitschaft ohne Synchronverlust:** Lokale und Online-Importe warten nur noch auf einen kleinen, geräteangepassten Satz echter PTS-Startbilder statt auf 120–240 Miniaturen. Danach werden exakte Bilder zuerst im sichtbaren Bereich und anschließend außerhalb per Mittelpunkt-Unterteilung ergänzt. Jede Miniatur verwendet das letzte Bild vor der angeforderten Quellzeit, die Abspielkopfzelle folgt der Live-Vorschau und Hintergrund-Updates pausieren während des Scrubbings.
-- **29. August 2026 — Lokale Generierungs-Connectoren:** ComfyUI und Stable Diffusion WebUI/Forge wurden als getrennte Plugins ergänzt. ComfyUI führt API-Format-Workflows über Loopback aus und importiert Bild- oder Videoausgaben; WebUI nutzt die echten txt2img/img2img-APIs. Ergebnisse landen automatisch in My assets, die generische Hugging-Face-Spaces-Einbettung wurde entfernt.
-- **28. August 2026 — Browserlokales intelligentes Entrauschen:** Visuals → KI-Reparatur beginnt mit DRUNet, Einzelbildvergleich, vier Stärken, Quellton und umkehrbarer Anwendung. Ganze Clips laufen nun bei Quellbildrate als WebCodecs-Stream mit überlappender Decodierung und Inferenz, dauerhafter WebGPU-Session, wiederverwendeten Canvas-, Tensor- und Pixelpuffern sowie vorsichtiger Wiederverwendung des Entrauschungsresiduums bei wenig veränderten Nachbarbildern; PNG/FFmpeg bleibt als Kompatibilitätsweg erhalten. Verfügbar auf Desktop und Mobilgeräten in allen 11 Sprachen.
-- **28. August 2026 — Hochauflösende Video-Vorbereitung in der Timeline:** Neue Videos bleiben während der Metadaten- und echten PTS-Vorschaubild-Decodierung sichtbar im Ladezustand, sodass keine gestreckten Platzhalterblöcke entstehen. Die Filmstreifen verwenden schärfere 180px-Quellbilder, zoomabhängig lesbare Dichte, exakte Quellzeit-Zuordnung unter dem Abspielkopf und zentrierten Hochformat-Zuschnitt ohne schwarze Balken.
-- **28. August 2026 — Live-Fortschritt integrierter Chrome-Modelle:** Automatischer Schnitt zeigt den echten Chrome-Fortschritt, Abschlussstatus und Versuchszähler für Bildverständnis und Untertitelübersetzung getrennt an. Meldet Chrome 45 Sekunden lang keinen Fortschritt, zeigt die Oberfläche den Stillstand und eine nutzeraktivierte Aktion Download wiederholen, damit die erforderliche Klickaktivierung und Chromes Teilstand erhalten bleiben.
+- **2026-09-27** — Automatische Untertitel nutzen Wortzeitpunkte und kurze Phrasen oder einzelne Wörter, um große Textblöcke in Hochkantvideos zu vermeiden. Vorschau, Export und SRT teilen dieselben bearbeitbaren Clips; Bedienelemente in 13 Sprachen. Die KI-Sprachausgabe teilt lange Texte vor der Synthese in kurze Phrasen und passt Untertitel an deren Audiolänge an, auch beim ausgewählten Untertitel. Anzeige und SRT blenden abschließende Kommas, Punkte und Semikolons aus; ausdrucksstarke Satzzeichen und der Originaltext für Bearbeitung und Sprache bleiben erhalten.
+- **2026-09-27** — Bei Desktop-Wiedergabe blättert die Zeitleiste bei 85% weiter und setzt den Abspielkopf auf etwa 20%. Manuelles horizontales Scrollen unterbricht die Verfolgung; Rückkehr zum Abspielkopf oder erneute Wiedergabe aktiviert sie. Pausieren erhält die Ansicht.
+- **2026-09-27** — Vereinte Videoclips: Hauptvideo und Bild-in-Bild zeigen Dateiname, Filmstreifen und Quellton-Wellenform zusammen. dB direkt pro Clip anpassen; Vorschau und Export nutzen denselben Pegel, der beim Trennen des Tons erhalten bleibt. Oberfläche in 13 Sprachen. Alle Audiospuren zeigen feine, unten ausgerichtete Wellenformen passend zum Pegel; Spitzen über der Anzeigegrenze erscheinen orange. Das bisherige Design bleibt erhalten. Beim Ziehen des Abspielkopfs wartet die Vorschau nicht mehr auf die Darstellungsbestätigung; nach dem Loslassen wird das exakte Bild weiterhin geprüft.
+- **2026-09-21 — Pausen entfernen:** Smart erkennt lange Sprechpausen lokal mit Silero VAD. Schnitte im ausgewählten Hauptvideo und Originalton lassen sich prüfen und auswählen. Mindestpause, verbleibender Abstand, Ripple-Schnitt, Abbruch und Rückgängig sind verfügbar; die Oberfläche unterstützt 13 Sprachen.
+- **2026-09-20 — Abspielkopf an Markern einrasten:** Beim Ziehen des weißen Abspielkopfs wird das Bild live angezeigt. Er rastet an Markern und Bereichsgrenzen ein, mit gemeinsamer Hilfslinie und Zeitanzeige. Alt ermöglicht freies Verschieben. Markerdetails zeigen zunächst Fertig und nach Bearbeitung Änderungen anwenden.
 
 Geplante Arbeiten stehen in der [Roadmap](ROADMAP.md), veröffentlichte Änderungen in den [Releases](https://github.com/MartinDelophy/ai-video-editor/releases) und einzelne Aufgaben in den [Issues](https://github.com/MartinDelophy/ai-video-editor/issues).
 
@@ -77,12 +77,12 @@ gh skill install MartinDelophy/ai-video-editor edit-timeline-studio --agent clau
 gh skill install MartinDelophy/ai-video-editor edit-timeline-studio --agent codex --scope user
 ```
 
-Füge `--pin v1.0.0` hinzu, um die geprüfte Version statt der jeweils neuesten Release zu installieren. Vor der Installation kannst du den Skill mit `gh skill preview MartinDelophy/ai-video-editor edit-timeline-studio` prüfen.
+Füge `--pin v1.0.8` hinzu, um die geprüfte Version statt der jeweils neuesten Release zu installieren. Vor der Installation kannst du den Skill mit `gh skill preview MartinDelophy/ai-video-editor edit-timeline-studio` prüfen.
 
 ## Roadmap
 
 - **Jetzt:** Deterministischen Offline-Export stabilisieren und die Timeline zuverlässiger machen.
-- **Als Nächstes:** Den versionierten Headless Command Runner für agentengesteuerte Bearbeitung veröffentlichen und wiederverwendbare Projektvorlagen leichter teilbar machen.
+- **Als Nächstes:** Die Übereinstimmung von Headless-Rendering und Browserexport, prüfbare WebMCP-Befehle und das Teilen von Projektvorlagen ausbauen.
 - **Später:** Kollaborative Reviews, eine Plugin-Schnittstelle und weitere lokal verifizierte KI-Modelle ergänzen.
 
 Die Prioritäten werden in [GitHub Discussions](https://github.com/MartinDelophy/ai-video-editor/discussions) gemeinsam festgelegt.

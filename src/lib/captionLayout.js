@@ -1,3 +1,4 @@
+import { getCaptionDisplayText } from "./captionDisplayText.js";
 import {
   DEFAULT_CAPTION_FONT_ID,
   resolveCaptionFontFamily,
@@ -191,6 +192,7 @@ export function getCaptionTextLayout({
   referenceFrame,
   renderFrame,
 } = {}) {
+  text = getCaptionDisplayText(text);
   const frame = normalizeFrameSize(renderFrame);
   const metrics = resolveCaptionMetrics({ captionSize, captionStyle, referenceFrame, renderFrame: frame });
   if (context) {
