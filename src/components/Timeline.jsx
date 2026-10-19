@@ -209,6 +209,7 @@ function getImageTimelineThumbnailCount({ duration, timelineDuration, contentWid
 
 export function Timeline({
   t,
+  audioProcessingLabel,
   timelineMarkers = [],
   setTimelineMarkers,
   trOption,
@@ -1533,6 +1534,7 @@ export function Timeline({
       || (segment.type || visualType) !== "video"
       || segment.preparing
       || timelineSeekActive
+      || isPlaying
       || !segment.blob
       || !segmentRange
       || rulerViewport.contentWidth <= 0
@@ -1663,10 +1665,11 @@ export function Timeline({
     setVisualSegments,
     timelineDuration,
     timelineSeekActive,
+    isPlaying,
     visualType,
   ]);
   useEffect(() => {
-    if (timelineSeekActive || localTimelineZoom < 3 || typeof setVisualSegments !== "function") return undefined;
+    if (isPlaying || timelineSeekActive || localTimelineZoom < 3 || typeof setVisualSegments !== "function") return undefined;
     const inFlight = filmstripUpgradeInFlightRef.current;
     const segment = displayedVisualSegments.find((item) => {
       if ((item.type || visualType) !== "video" || item.remoteSrc || !item.src || inFlight.has(item.src)) return false;
@@ -1714,7 +1717,7 @@ export function Timeline({
         inFlight.delete(sourceKey);
       }
     };
-  }, [displayedVisualSegments, localTimelineZoom, setVisualSegments, timelineSeekActive, visualType]);
+  }, [displayedVisualSegments, isPlaying, localTimelineZoom, setVisualSegments, timelineSeekActive, visualType]);
   useEffect(() => {
     if (!window.matchMedia?.("(max-width: 760px)").matches || timelineDuration <= 0) return;
     const minimumZoom = getTimelineZoomForVisibleDuration(timelineDuration);
@@ -3338,9 +3341,9 @@ export function Timeline({
                               contentWidth: rulerViewport.contentWidth,
                             })}
                             imageCellWidth={IMAGE_THUMBNAIL_TARGET_WIDTH}
-                            currentTime={segmentType === "video" && isCurrentVisualSegment && segmentRange ? currentTime : null}
+                            currentTime={!timelineSeekActive && segmentType === "video" && isCurrentVisualSegment && segmentRange ? currentTime : null}
                             segmentStart={segmentRange?.start || 0}
-                            previewVideoMediaTime={segmentType === "video" && isCurrentVisualSegment ? previewVideoMediaTime : 0}
+                            previewVideoMediaTime={!timelineSeekActive && segmentType === "video" && isCurrentVisualSegment ? previewVideoMediaTime : 0}
                             timelineSeekActive={isCurrentVisualSegment && timelineSeekActive}
                           />
                         ) : null}
@@ -3708,6 +3711,7 @@ export function Timeline({
             if (actionId === "audio-properties") return <button type="button" key={actionId} onClick={() => openSelectedClipInspector("audio")}><Waveform size={20} /><span>{t("mobileClipAudio")}</span></button>;
             if (actionId === "audio-fade") return <button type="button" key={actionId} onClick={() => openSelectedClipInspector("fade")}><ArrowsInLineHorizontal size={20} /><span>{t("mobileClipFade")}</span></button>;
             if (actionId === "audio-spatial") return <button type="button" key={actionId} onClick={() => openSelectedClipInspector("spatial")}><Waveform size={20} /><span>{t("audioSpaceTab")}</span></button>;
+            if (actionId === "audio-processing") return <button type="button" key={actionId} onClick={() => openSelectedClipInspector("processing")}><SlidersHorizontal size={20} /><span>{audioProcessingLabel}</span></button>;
             if (actionId === "audio-voice-color") return <button type="button" key={actionId} onClick={() => openSelectedClipInspector("voice-color")}><Sparkle size={20} weight="fill" /><span>{t("voiceColorTab", "音色")}</span></button>;
             if (actionId === "split") return <button type="button" key={actionId} onClick={() => runMobileClipAction(handleCutTrack)}><Scissors size={20} /><span>{t("mobileClipSplit")}</span></button>;
             if (actionId === "copy") return <button type="button" key={actionId} onClick={() => runMobileClipAction(handleDuplicateTrack)}><CopySimple size={20} /><span>{t("mobileClipCopy")}</span></button>;

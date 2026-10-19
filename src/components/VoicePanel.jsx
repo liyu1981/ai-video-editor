@@ -1,4 +1,9 @@
+import { normalizeCaptionHighlightRanges, getCaptionKeywordRanges } from "../lib/captionKeywords.js";
+import { getCaptionKeywordCopy, getCaptionSelectionHighlightCopy, getCaptionVisualLinkCopy } from "../i18nCaptionEditing.js";
 import { CaptionGroupingControl } from "./CaptionGroupingControl.jsx";
+import { AudioInspectorTabs } from "./AudioInspectorTabs.jsx";
+import { AudioProcessingPanel } from "./AudioProcessingPanel.jsx";
+import { getAudioProcessingCopy } from "../i18nAudioProcessing.js";
 import {
   Armchair,
   ArrowCounterClockwise,
@@ -560,6 +565,8 @@ function VectorControls({ t, segment, onUpdate }) {
 }
 
 function CaptionContextPanel({
+  language,
+  highlightDisabled,
   t,
   captionSegments,
   selectedCaptionSegment,
@@ -584,6 +591,31 @@ function CaptionContextPanel({
   setCaptionSegments,
 }) {
   const [captionGrouping, setCaptionGrouping] = useState("phrases");
+  const selectionRef = useRef(null);
+  const [selection, setSelection] = useState(null);
+  const highlightCopy = getCaptionSelectionHighlightCopy(language);
+  const keywordCopy = getCaptionKeywordCopy(language);
+  const rememberSelection = event => {
+    const { selectionStart: start, selectionEnd: end } = event.currentTarget;
+    const next = { id: selectedCaptionSegment.id, start, end };
+    selectionRef.current = next;
+    setSelection(next);
+  };
+  const patchHighlight = patch => {
+    if (highlightDisabled || !selectedCaptionSegment) return;
+    setCaptionSegments(items => items.map(segment => segment.id === selectedCaptionSegment.id ? patch(segment) : segment));
+  };
+  const highlightSelection = () => {
+    const range = selectionRef.current;
+    if (!range || range.id !== selectedCaptionSegment?.id || range.end <= range.start) return;
+    patchHighlight(segment => ({ ...segment,
+      highlightRanges: normalizeCaptionHighlightRanges([
+        ...(segment.highlightRanges || []),
+        ...getCaptionKeywordRanges(segment.text, segment.styleOverrides?.highlightWords), range,
+      ], segment.text.length),
+      styleOverrides: { ...segment.styleOverrides, highlightWords: "", highlightColor: segment.styleOverrides?.highlightColor || "#ffe066" },
+    }));
+  };
   const srtInputRef = useRef(null);
   const focusNewCaptionRef = useRef(false);
   const [pendingSrt, setPendingSrt] = useState(null);
@@ -691,9 +723,20 @@ function CaptionContextPanel({
         <div className="script-box caption-sync-box">
           <textarea
             id="caption-context-input"
+            onSelect={rememberSelection}
+            disabled={highlightDisabled}
             value={selectedCaptionSegment.text}
             onChange={(event) => updateCaptionSegmentText(selectedCaptionSegment.id, event.target.value)}
           />
+          <div className="caption-highlight-actions">
+            <button type="button" disabled={highlightDisabled || selection?.id !== selectedCaptionSegment.id || !(selection.end > selection.start)}
+              onMouseDown={event => event.preventDefault()} onClick={highlightSelection}>{highlightCopy[0]}</button>
+            <label><span>{keywordCopy[1]}</span><input type="color" aria-label={keywordCopy[1]} disabled={highlightDisabled}
+              value={selectedCaptionSegment.styleOverrides?.highlightColor || "#ffe066"}
+              onChange={event => { const color = event.target.value; patchHighlight(segment => ({ ...segment, styleOverrides: { ...segment.styleOverrides, highlightColor: color } })); }} /></label>
+            <button type="button" disabled={highlightDisabled} onClick={() => patchHighlight(segment => ({ ...segment, highlightRanges: [], styleOverrides: { ...segment.styleOverrides, highlightWords: "" } }))}>{highlightCopy[1]}</button>
+            <small>{highlightCopy[2]}</small>
+          </div>
           <div className="script-meta">
             <button type="button" onClick={() => seekTo(selectedStart)}>
               <ClosedCaptioning size={14} />
@@ -967,30 +1010,30 @@ function AudioVoiceColorSection({ t, segment, voiceProfiles = [], onAssetReady, 
   </div>;
 }
 
-function AudioClipContextPanel({ t, segment, updateAudioSegment, toggleAudioSegmentReverse, deleteAudioSegment, downloadBlob, requestedSection = "", voiceProfiles, onVoiceColorAssetReady, onApplyVoiceColor, onRestoreVoiceColor }) {
+function AudioClipContextPanel({ t, language, visualAssociation, processingDisabled, registerProcessingUrl, segment, updateAudioSegment, toggleAudioSegmentReverse, deleteAudioSegment, downloadBlob, requestedSection = "", voiceProfiles, onVoiceColorAssetReady, onApplyVoiceColor, onRestoreVoiceColor }) {
   const [activeTab, setActiveTab] = useState("audio");
   const tabBodyRef = useRef(null);
   const isVoiceClip = segment.track === "audio";
-  const canVoiceColor = segment.track !== "music" && Boolean(segment.blob);
+  const canVoiceColor = !segment.embeddedVideo && segment.track !== "music" && Boolean(segment.blob);
   const canSpatial = true;
-  const shownTab = requestedSection === "spatial" ? "spatial" : requestedSection === "voice-color" ? "voice-color" : requestedSection === "fade" ? "fade" : requestedSection === "audio" ? "audio" : activeTab;
-  const canFade = segment.track !== "source";
+  const processingCopy = getAudioProcessingCopy(language);
+  const shownTab = requestedSection === "processing" ? "processing" : requestedSection === "spatial" ? "spatial" : requestedSection === "voice-color" ? "voice-color" : requestedSection === "fade" ? "fade" : requestedSection === "audio" ? "audio" : activeTab;
+  const canFade = !segment.embeddedVideo && segment.track !== "source";
   useEffect(() => {
-    if (["audio", "fade", "spatial", "voice-color"].includes(requestedSection)) setActiveTab(requestedSection);
+    if (["audio", "fade", "spatial", "voice-color", "processing"].includes(requestedSection)) setActiveTab(requestedSection);
   }, [requestedSection, segment.id]);
   useEffect(() => {
     tabBodyRef.current?.scrollTo({ top: 0 });
   }, [shownTab, segment.id]);
-  const tabCount = 1 + Number(canFade) + Number(canSpatial) + Number(canVoiceColor);
   return (
-    <div className={`audio-clip-context-panel${requestedSection ? " is-single-section" : ""}`}>
-      {!requestedSection && (canFade || canSpatial || canVoiceColor) ? <div className={`audio-context-tabs has-${tabCount}-tabs`} role="tablist" aria-label={t("audioClipProperties")}>
-        <button className={shownTab === "audio" ? "is-active" : ""} type="button" role="tab" aria-selected={shownTab === "audio"} onClick={() => setActiveTab("audio")}>{t("mobileClipAudio")}</button>
-        {canFade ? <button className={shownTab === "fade" ? "is-active" : ""} type="button" role="tab" aria-selected={shownTab === "fade"} onClick={() => setActiveTab("fade")}>{t("mobileClipFade")}</button> : null}
-        {canSpatial ? <button className={shownTab === "spatial" ? "is-active" : ""} type="button" role="tab" aria-selected={shownTab === "spatial"} onClick={() => setActiveTab("spatial")}>{t("audioSpaceTab")}</button> : null}
-        {canVoiceColor ? <button className={shownTab === "voice-color" ? "is-active" : ""} type="button" role="tab" aria-selected={shownTab === "voice-color"} onClick={() => setActiveTab("voice-color")}>{t("voiceColorTab", "音色")}</button> : null}
-      </div> : null}
-      <div ref={tabBodyRef} className="audio-context-tab-body">
+    <div className={`audio-clip-context-panel${requestedSection ? " is-single-section" : ""}${shownTab === "processing" ? " is-processing" : ""}`}>
+      {!requestedSection ? <AudioInspectorTabs
+        items={[{id:"audio",label:t("mobileClipAudio")},...(canFade?[{id:"fade",label:t("mobileClipFade")}]:[]),...(canSpatial?[{id:"spatial",label:t("audioSpaceTab")}]:[]),...(canVoiceColor?[{id:"voice-color",label:t("voiceColorTab", "音色")}]:[]),{id:"processing",label:processingCopy.processing}]}
+        value={shownTab} onChange={setActiveTab} label={t("audioClipProperties")} previous={processingCopy.previous} next={processingCopy.next}
+      /> : null}
+      {visualAssociation && <button className="panel-secondary timed-visual-link" type="button" disabled={visualAssociation.disabled} onClick={visualAssociation.toggle}>{getCaptionVisualLinkCopy(language)[visualAssociation.linked ? 1 : 0]}</button>}
+      <div ref={tabBodyRef} className={`audio-context-tab-body${shownTab === "processing" ? " is-processing" : ""}`}>
+      {shownTab === "processing" ? <AudioProcessingPanel segment={segment} language={language} disabled={processingDisabled} updateAudioSegment={updateAudioSegment} registerUrl={registerProcessingUrl} /> : null}
       {shownTab === "audio" ? <div className="audio-context-section">
         {segment.canChangeStart !== false ? <label className="audio-property-row">
           <span>{t("audioClipStart")}</span>
@@ -1043,7 +1086,7 @@ function AudioClipContextPanel({ t, segment, updateAudioSegment, toggleAudioSegm
         </div>
       </div> : null}
       {shownTab === "voice-color" && canVoiceColor ? <AudioVoiceColorSection t={t} segment={segment} voiceProfiles={voiceProfiles} onAssetReady={onVoiceColorAssetReady} onApply={onApplyVoiceColor} onRestore={onRestoreVoiceColor} /> : null}
-      {shownTab === "audio" ? <div className="audio-context-actions">
+      {shownTab === "audio" && !segment.embeddedVideo ? <div className="audio-context-actions">
         {isVoiceClip ? <button className={`panel-secondary ${segment.reversed ? "is-active" : ""}`} type="button" disabled={segment.reversing} onClick={() => toggleAudioSegmentReverse(segment.id)}>
           {segment.reversing ? t("audioReversing") : segment.reversed ? t("audioReverseRestore") : t("audioReverse")}
         </button> : null}
@@ -1386,6 +1429,7 @@ function CaptionFontSheet({
 }
 
 export function VoicePanel({
+  captionHighlightDisabled = false,
   t,
   activeTool,
   captionVoiceFocusRequest = 0,
@@ -1474,6 +1518,7 @@ export function VoicePanel({
   selectedTrack,
   selectedAudioSegment,
   selectedTrackAudioSegment,
+  audioProcessingDisabled, registerAudioProcessingUrl, captionVisualLinkDisabled, toggleCaptionVisualLink, audioVisualAssociation, stickerVisualAssociation,
   mobileInspectorOrigin = "",
   mobileInspectorSection = "",
   onCloseMobileInspector,
@@ -1527,7 +1572,7 @@ export function VoicePanel({
 }) {
   const [captionPanelTab, setCaptionPanelTab] = useState("caption");
   const panelRef = useRef(null);
-  const panelContext = resolveInspectorPanelContext({
+  const panelContext = selectedTrackAudioSegment?.embeddedVideo && ((activeTool === "audio" && !mobileInspectorOrigin) || ["audio", "spatial"].includes(mobileInspectorSection)) ? "audio" : resolveInspectorPanelContext({
     origin: mobileInspectorOrigin,
     activeTool,
     selectedTrack,
@@ -1544,13 +1589,13 @@ export function VoicePanel({
   const isSilenceRemovalContext = isSmartContext && smartMode === "remove-pauses";
   const isFaceSwapContext = isEffectsContext && effectsPanelMode === "face-swap";
   const isOpticalFlowContext = isEffectsContext && effectsPanelMode === "vector-tracking";
-  const isCinematicDepthContext = isEffectsContext && effectsPanelMode === "cinematic-depth";
+  const isCinematicDepthContext = isEffectsContext && ["cinematic-depth", "depth-map", "relight"].includes(effectsPanelMode);
   const isPhotoParallaxContext = isEffectsContext && effectsPanelMode === "photo-parallax";
   const isClickRippleContext = isEffectsContext && effectsPanelMode === "click-ripple";
   const audioPropertySegment = selectedTrack === "audio" ? selectedAudioSegment : selectedTrackAudioSegment;
   const isAudioClipContext = panelContext === "audio" && (
     Boolean(selectedTrack === "audio" && selectedAudioSegment)
-    || Boolean(["source", "music"].includes(selectedTrack) && audioPropertySegment)
+    || Boolean(["source", "music", "image", "overlay"].includes(selectedTrack) && audioPropertySegment)
   );
   const isVisualContext = panelContext === "visual" && !isEffectsContext;
   const isStickerContext = panelContext === "sticker" && Boolean(selectedStickerSegment);
@@ -1588,13 +1633,14 @@ export function VoicePanel({
     fade: t("mobileClipFade"),
     spatial: t("audioSpaceTab"),
     "voice-color": t("voiceColorTab", "音色"),
+    processing: getAudioProcessingCopy(uiLanguage).processing,
     sticker: t("stickerProperties"),
     effects: t("effects"),
     outline: t("effectOutline"),
     background: t("effectBackground"),
     edge: t("effectEdgeCleanup"),
   }[mobileInspectorSection];
-  const title = focusedSectionTitle || (isSilenceRemovalContext ? t("pauseTitle") : isPluginsContext ? getPluginCopy(uiLanguage).title : isFaceSwapContext ? t("faceSwapTitle") : isOpticalFlowContext ? t("effectVectorTracking") : isCinematicDepthContext ? t("depthTitle") : isPhotoParallaxContext ? t("parallaxTitle") : isEffectsContext ? t("effectProperties") : isAiMusicContext ? (AI_MUSIC_COPY[uiLanguage] || AI_MUSIC_COPY.en).title : isSmartAutoContext ? t("smartAutoEdit") : isSmartFrameContext ? t("smartFrame") : isAvatarContext ? t("avatarTitle") : isVectorOverlay || isVectorVisual ? t("vectorProperties", "矢量图形") : isOverlayContext ? t("pictureInPicture", "画中画") : isStickerContext ? t("stickerProperties") : isVisualContext ? t("visualPanelTitle") : isCaptionContext ? t("caption") : isAudioClipContext ? t("audioClipProperties") : t("aiVoice"));
+  const title = focusedSectionTitle || (isSilenceRemovalContext ? t("pauseTitle") : isPluginsContext ? getPluginCopy(uiLanguage).title : isFaceSwapContext ? t("faceSwapTitle") : isOpticalFlowContext ? t("effectVectorTracking") : isCinematicDepthContext ? t(effectsPanelMode === "relight" ? "relightTitle" : effectsPanelMode === "depth-map" ? "depthMapTitle" : "depthTitle") : isPhotoParallaxContext ? t("parallaxTitle") : isEffectsContext ? t("effectProperties") : isAiMusicContext ? (AI_MUSIC_COPY[uiLanguage] || AI_MUSIC_COPY.en).title : isSmartAutoContext ? t("smartAutoEdit") : isSmartFrameContext ? t("smartFrame") : isAvatarContext ? t("avatarTitle") : isVectorOverlay || isVectorVisual ? t("vectorProperties", "矢量图形") : isOverlayContext ? t("pictureInPicture", "画中画") : isStickerContext ? t("stickerProperties") : isVisualContext ? t("visualPanelTitle") : isCaptionContext ? t("caption") : isAudioClipContext ? t("audioClipProperties") : t("aiVoice"));
   const panelStatusText = isSilenceRemovalContext ? t("pauseHint") : isFaceSwapContext
     ? faceSwap?.job?.running ? `${faceSwap.job.progress}%` : hasVisual ? t("smartVisualReady") : t("smartWaitingVisual")
     : isOpticalFlowContext ? t("effectFlowExperimental")
@@ -1653,7 +1699,7 @@ export function VoicePanel({
   }, [activeTool, smartMode]);
 
   return (
-    <aside ref={panelRef} className={`voice-panel ${isCaptionContext ? "is-caption-context" : ""} ${isAvatarContext ? "is-avatar-context" : ""} ${isAudioClipContext ? "is-audio-clip-context" : ""} ${isStickerContext ? "is-sticker-context" : ""} ${isVisualContext ? "is-visual-context" : ""} ${isEffectsContext ? "is-effects-context" : ""} ${isPluginsContext ? "is-plugins-context" : ""} ${isVectorOverlay ? "is-vector-overlay-context" : ""} ${mobileInspectorSection ? "is-focused-mobile-section" : ""}`}>
+    <aside ref={panelRef} className={`voice-panel ${isCaptionContext ? "is-caption-context" : ""} ${isAvatarContext ? "is-avatar-context" : ""} ${isAudioClipContext ? "is-audio-clip-context" : ""} ${isStickerContext ? "is-sticker-context" : ""} ${isVisualContext ? "is-visual-context" : ""} ${isEffectsContext ? "is-effects-context" : ""} ${isCinematicDepthContext && effectsPanelMode === "relight" ? "is-relight-context" : ""} ${isPluginsContext ? "is-plugins-context" : ""} ${isVectorOverlay ? "is-vector-overlay-context" : ""} ${mobileInspectorSection ? "is-focused-mobile-section" : ""}`}>
       {mobileInspectorSection ? <header className="focused-mobile-sheet-header"><strong>{title}</strong><button type="button" aria-label={t("close", "关闭")} onClick={onCloseMobileInspector}><X size={20} /></button></header> : null}
       <div className="panel-title-row">
         <h1>{title}</h1>
@@ -1730,6 +1776,8 @@ export function VoicePanel({
           onAssetReady={onOpticalFlowAssetReady}
         /> : null}
         {isCinematicDepthContext ? <CinematicDepthPanel
+          relight={effectsPanelMode === "relight"}
+          depthMap={effectsPanelMode === "depth-map"}
           t={t}
           segment={effectSegment}
           analysis={cinematicDepth?.record}
@@ -1751,11 +1799,15 @@ export function VoicePanel({
         {isSmartFrameContext ? <SmartFramePanel t={t} smartFrame={smartFrame} /> : null}
         {isAiMusicContext ? <AiMusicGenerator language={uiLanguage} music={aiMusic} embedded /> : null}
         {isSilenceRemovalContext ? <SilenceRemovalPanel t={t} tool={silenceRemoval} /> : null}
-        {isStickerContext ? <StickerContextPanel t={t} segment={selectedStickerSegment} updateStickerSegment={updateStickerSegment} deleteStickerSegment={deleteStickerSegment} /> : null}
+        {isStickerContext ? <>
+          {stickerVisualAssociation && <button className="panel-secondary timed-visual-link" type="button" disabled={stickerVisualAssociation.disabled} onClick={stickerVisualAssociation.toggle}>{getCaptionVisualLinkCopy(uiLanguage)[stickerVisualAssociation.linked ? 1 : 0]}</button>}
+          <StickerContextPanel t={t} segment={selectedStickerSegment} updateStickerSegment={updateStickerSegment} deleteStickerSegment={deleteStickerSegment} />
+        </> : null}
         {isOverlayContext ? <div className="visual-overlay-inspector">
           {!mobileInspectorSection ? <div className={`sticker-properties-preview ${isVectorOverlay ? "is-vector" : ""}`}>{selectedVisualOverlay.type === "video" ? <video src={selectedVisualOverlay.src} muted playsInline /> : <img src={selectedVisualOverlay.src} alt="" style={isVectorOverlay ? { filter: vectorOverlayAppearance.filter, opacity: vectorOverlayAppearance.opacity, mixBlendMode: vectorOverlayAppearance.cssBlendMode } : undefined} />}</div> : null}
           <VisualEffectsPanel
             contextMode
+            audioEditor={selectedTrackAudioSegment?.embeddedVideo ? <AudioClipContextPanel t={t} language={uiLanguage} visualAssociation={audioVisualAssociation} segment={{ ...selectedTrackAudioSegment, id: selectedTrackAudioSegment.segmentId }} updateAudioSegment={updateSelectedTrackAudioSegment} /> : null}
             mode="overlay"
             t={t}
             segment={selectedVisualOverlay}
@@ -1776,6 +1828,7 @@ export function VoicePanel({
         {isVisualContext && selectedVisualSegment ? (
           <VisualEffectsPanel
             contextMode
+            audioEditor={selectedTrackAudioSegment?.embeddedVideo ? <AudioClipContextPanel t={t} language={uiLanguage} visualAssociation={audioVisualAssociation} segment={{ ...selectedTrackAudioSegment, id: selectedTrackAudioSegment.segmentId }} updateAudioSegment={updateSelectedTrackAudioSegment} /> : null}
             t={t}
             segment={selectedVisualSegment}
             localTime={visualLocalTime}
@@ -1817,7 +1870,11 @@ export function VoicePanel({
           />
         ) : null}
         {isCaptionContext && captionPanelTab === "caption" && mobileInspectorSection !== "font" ? (
+          <>
+          {selectedCaptionSegment && <button className="panel-secondary caption-visual-link" type="button" disabled={captionVisualLinkDisabled} onClick={toggleCaptionVisualLink}>{getCaptionVisualLinkCopy(uiLanguage)[selectedCaptionSegment.visualSegmentId ? 1 : 0]}</button>}
           <CaptionContextPanel
+            language={uiLanguage}
+            highlightDisabled={captionHighlightDisabled}
             t={t}
             captionSegments={captionSegments}
             selectedCaptionSegment={selectedCaptionSegment}
@@ -1841,6 +1898,7 @@ export function VoicePanel({
             isGeneratingCaptions={isGeneratingCaptions}
             automaticCaptionProgress={automaticCaptionProgress}
           />
+          </>
         ) : null}
 
         {isCaptionContext && captionPanelTab === "voice" ? (
@@ -1887,7 +1945,7 @@ export function VoicePanel({
 
         {isAvatarContext ? <AvatarContextPanel t={t} hasVisual={hasVisual} visualType={visualType} audioBlob={audioBlob} audioDuration={audioDuration} captionSegments={captionSegments} selectedVoice={selectedVoice} avatarJob={avatarJob} generateAvatarAcceptanceFrame={generateAvatarAcceptanceFrame} /> : null}
 
-        {isAudioClipContext ? <AudioClipContextPanel t={t} segment={{ ...audioPropertySegment, id: audioPropertySegment.id || audioPropertySegment.segmentId, track: audioPropertySegment.track || selectedTrack }} updateAudioSegment={selectedTrack === "audio" ? updateAudioSegment : updateSelectedTrackAudioSegment} toggleAudioSegmentReverse={toggleAudioSegmentReverse} deleteAudioSegment={selectedTrack === "audio" ? deleteAudioSegment : deleteSelectedTrackAudioSegment} downloadBlob={downloadBlob} requestedSection={mobileInspectorSection} voiceProfiles={voiceProfiles} onVoiceColorAssetReady={onVoiceColorAssetReady} onApplyVoiceColor={onApplyVoiceColor} onRestoreVoiceColor={onRestoreVoiceColor} /> : null}
+        {isAudioClipContext ? <AudioClipContextPanel t={t} language={uiLanguage} visualAssociation={audioVisualAssociation} processingDisabled={audioProcessingDisabled} registerProcessingUrl={registerAudioProcessingUrl} segment={{ ...audioPropertySegment, id: audioPropertySegment.id || audioPropertySegment.segmentId, track: audioPropertySegment.track || selectedTrack }} updateAudioSegment={selectedTrack === "audio" ? updateAudioSegment : updateSelectedTrackAudioSegment} toggleAudioSegmentReverse={toggleAudioSegmentReverse} deleteAudioSegment={selectedTrack === "audio" ? deleteAudioSegment : deleteSelectedTrackAudioSegment} downloadBlob={downloadBlob} requestedSection={mobileInspectorSection} voiceProfiles={voiceProfiles} onVoiceColorAssetReady={onVoiceColorAssetReady} onApplyVoiceColor={onApplyVoiceColor} onRestoreVoiceColor={onRestoreVoiceColor} /> : null}
 
         {!isSmartContext && !isPluginsContext && !isEffectsContext && !isCaptionContext && !isAvatarContext && !isAudioClipContext && !isVisualContext && !isStickerContext && !isOverlayContext && voiceTab === "synthesis" ? (
           <VoiceSynthesisPanel

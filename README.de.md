@@ -5,6 +5,18 @@
 [![skills.sh](https://skills.sh/b/MartinDelophy/ai-video-editor)](https://skills.sh/MartinDelophy/ai-video-editor)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg?style=flat-square)](CONTRIBUTING.md) [![LINUX DO](https://shorturl.at/ggSqS)](https://linux.do)
 
+## Mit Anna gestalten
+
+Die Anna-Version verbindet KI-gestützten Schnitt mit der Fortsetzung Ihrer Projekte:
+
+- Beschreiben Sie Anna Ihren Schnitt, prüfen Sie einen Plan auf Basis Ihrer Vorgaben und Medienmetadaten und wenden Sie unterstützte Clip-Sortierungen sowie einfache Videozuschnitte bei 1× an.
+- Projekte und Medien werden automatisch in der Anna-Cloud gespeichert und lassen sich mit demselben Konto in einem anderen Browser fortsetzen. Lokale Projektprüfpunkte bieten eine weitere Wiederherstellungsoption.
+- Verfeinern Sie die bearbeitbare Mehrspur-Timeline, ergänzen Sie KI-Stimmen und manuelle Untertitel und exportieren Sie MP4 mit einem verfügbaren Browser-Encoder.
+
+Diese Vorschau ist für Desktopgeräte bestimmt. Die Planung analysiert keine Videobilder oder Audiodaten; lokale KI-Funktionen hängen vom Anna-Container ab.
+
+→ [Timeline Studio auf Anna ausprobieren](https://anna.partners/store/@martindelophy/timeline-studio)
+
 ## Verantwortungsvolle Nutzung von Deep-Synthesis-Technologie
 
 Dieses Tool basiert auf Deep-Synthesis-Technologie und ist ausschließlich für technische Forschung und Lernzwecke bestimmt.
@@ -19,12 +31,11 @@ Für sämtliche rechtlichen Folgen eines Verstoßes gegen diese Anforderungen is
 
 ## Projektneuigkeiten
 
-- **2026-09-27** — Automatische Untertitel nutzen Wortzeitpunkte und kurze Phrasen oder einzelne Wörter, um große Textblöcke in Hochkantvideos zu vermeiden. Vorschau, Export und SRT teilen dieselben bearbeitbaren Clips; Bedienelemente in 13 Sprachen. Die KI-Sprachausgabe teilt lange Texte vor der Synthese in kurze Phrasen und passt Untertitel an deren Audiolänge an, auch beim ausgewählten Untertitel. Anzeige und SRT blenden abschließende Kommas, Punkte und Semikolons aus; ausdrucksstarke Satzzeichen und der Originaltext für Bearbeitung und Sprache bleiben erhalten.
-- **2026-09-27** — Bei Desktop-Wiedergabe blättert die Zeitleiste bei 85% weiter und setzt den Abspielkopf auf etwa 20%. Manuelles horizontales Scrollen unterbricht die Verfolgung; Rückkehr zum Abspielkopf oder erneute Wiedergabe aktiviert sie. Pausieren erhält die Ansicht.
-- **2026-09-27** — Vereinte Videoclips: Hauptvideo und Bild-in-Bild zeigen Dateiname, Filmstreifen und Quellton-Wellenform zusammen. dB direkt pro Clip anpassen; Vorschau und Export nutzen denselben Pegel, der beim Trennen des Tons erhalten bleibt. Oberfläche in 13 Sprachen. Alle Audiospuren zeigen feine, unten ausgerichtete Wellenformen passend zum Pegel; Spitzen über der Anzeigegrenze erscheinen orange. Das bisherige Design bleibt erhalten. Beim Ziehen des Abspielkopfs wartet die Vorschau nicht mehr auf die Darstellungsbestätigung; nach dem Loslassen wird das exakte Bild weiterhin geprüft.
-- **2026-09-21 — Pausen entfernen:** Smart erkennt lange Sprechpausen lokal mit Silero VAD. Schnitte im ausgewählten Hauptvideo und Originalton lassen sich prüfen und auswählen. Mindestpause, verbleibender Abstand, Ripple-Schnitt, Abbruch und Rückgängig sind verfügbar; die Oberfläche unterstützt 13 Sprachen.
-- **2026-09-20 — Abspielkopf an Markern einrasten:** Beim Ziehen des weißen Abspielkopfs wird das Bild live angezeigt. Er rastet an Markern und Bereichsgrenzen ein, mit gemeinsamer Hilfslinie und Zeitanzeige. Alt ermöglicht freies Verschieben. Markerdetails zeigen zunächst Fertig und nach Bearbeitung Änderungen anwenden.
-
+- **2026-10-17** — Zuordnungen von Untertiteln, Audio und Stickern beim Verschieben zwischen Bildclips sowie gemeinsames Löschen und Verschieben korrigiert; Positionssprünge bei Untertitelauswahl verhindert und Audioübersicht vereinfacht. Textauswahlen lassen sich pro Untertitel hervorheben, einfärben und löschen.
+- **2026-10-17** — Lokale Audioverarbeitung mit RNNoise, DeepFilterNet3, EQ, Kompression, Verstärkung und Limiter; Vorhören, Anwenden und Wiederherstellen des Originals. Verbesserte Quelltonansicht, Untertitelausrichtung und Schlüsselworthervorhebung, mehrsprachige Schriften, verknüpfte Bearbeitung und Wiedergabe an Clipgrenzen.
+- **2026-10-13** — Beleuchtungsanalyse und Tiefenvideo nutzen über WebMCP Vorbereitung, Start, Status und Abbruch die vorhandene Browser-Pipeline. Lichtparameter werden mit gemeinsamen Befehlen geprüft, angewendet und rückgängig gemacht. Agent-Tiefenvideos bleiben bis zur separat geprüften Einfügung in Meine Medien. Der Skill beschreibt Ablauf und lokale CLI-Grenzen.
+- **2026-10-12** — Bei langen Videos pausiert die Wiedergabe die Hintergrundverfeinerung der Vorschaubilder und zeichnet das genaue Bild am Abspielkopf ohne JPEG-Kodierung. Beim Fortsetzen hat die letzte Suchposition Vorrang. AAC-Audio wird ohne Neukodierung oder vollständige Videokopie in WASM extrahiert; Effekte und Exporteinstellungen bleiben erhalten. Der Export bevorzugt unterstützte Hardware-Encoder und führt geeignete Videoframes in Originalgröße direkt der Komposition zu. Transformationen und Effekte behalten den bisherigen Renderpfad. Audio-Encoding und die Komposition des nächsten Frames laufen parallel zur Videoübergabe mit begrenzter Warteschlange. Scrubbing trennt Decoder und UI-Updates; Marker-Einrasten und die genaue Endposition bleiben erhalten.
+- **2026-10-07** — Visuelle Clips unterstützen jetzt eine Mindestdauer von 0,05 Sekunden. Schnitte in kurzen Intros, etwa bei 0,45 Sekunden, werden nicht mehr abgelehnt. Trimmen, Tempoänderungen und Projektwiederherstellung verwenden dieselbe Untergrenze. Eingefrorene Videos beim Öffnen oder Schließen der großen Vorschau behoben: Quellzeit, Wiedergabe und Frame-Callbacks werden am neuen Videoelement wiederhergestellt.
 Geplante Arbeiten stehen in der [Roadmap](ROADMAP.md), veröffentlichte Änderungen in den [Releases](https://github.com/MartinDelophy/ai-video-editor/releases) und einzelne Aufgaben in den [Issues](https://github.com/MartinDelophy/ai-video-editor/issues).
 
 ## Was kann es produzieren?

@@ -1,3 +1,6 @@
+import { applyProcessedSourceMedia, getSourceProcessingLane } from "./lib/sourceAudioProcessing.js";
+import { getAudioProcessingCopy } from "./i18nAudioProcessing.js";
+import { isTimedSegmentLaneLocked } from "./lib/timeline.js";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { X } from "@phosphor-icons/react";
 
@@ -81,7 +84,7 @@ import { useMiganRepair } from "./hooks/useMiganRepair.js";
 import { useNanoVsrRestoration } from "./hooks/useNanoVsrRestoration.js";
 import { useSmartDenoise } from "./hooks/useSmartDenoise.js";
 import { useGenerationPlugins } from "./hooks/useGenerationPlugins.js";
-import { getImageThumbnailCount, getVisualSegmentsTotal, normalizeTimedSegmentIds } from "./lib/timeline.js";
+import { getVisualAssetPayload, getVisualSegmentTimeline, getImageThumbnailCount, getVisualSegmentsTotal, normalizeTimedSegmentIds } from "./lib/timeline.js";
 import { getVisualSourceTime, normalizeVisualTransform, removeVisualPropertyKeyframe, updateVisualSegmentPlaybackRate, upsertVisualKeyframe, upsertVisualPropertyKeyframe } from "./lib/visualEffects.js";
 import { getVisualSpeedCurveTimelineProgress, updateVisualSegmentSpeedCurve } from "./lib/visualSpeedCurve.js";
 import { getLinkedSourceAudioEnd, getLinkedSourceAudioSegments, shouldMuteEmbeddedVideoAudio, sliceSourceAudioPeaks } from "./lib/sourceAudioSync.js";
@@ -397,6 +400,7 @@ export function App() {
       hasVectorEditor: isVector,
       isMobile: true,
     });
+    if (segment.type === "video") supportedSections.push("audio", "spatial");
     if (mobileInspectorSection !== "effects" && !supportedSections.includes(mobileInspectorSection)) setMobileInspectorSection(supportedSections[0] || "transform");
   }, [
     isCompactViewport,
@@ -595,6 +599,45 @@ export function App() {
     setSelectedLibraryAssetId(asset.id);
     setMediaTab("mine");
   };
+  const depthReplacementLocksRef = useRef(trackLocks);
+  useEffect(() => { depthReplacementLocksRef.current = trackLocks; }, [trackLocks]);
+  const handleDepthMapAssetReady = (assetDraft, { sourceSegment } = {}) => {
+    const id = crypto.randomUUID();
+    const src = URL.createObjectURL(assetDraft.blob);
+    imageUrlRefs.current.add(src);
+    const asset = { ...assetDraft, id, src };
+    setUserAssets((current) => [asset, ...current]);
+    setSelectedLibraryAssetId(id);
+    setActiveTool("media");
+    setMediaTab("mine");
+    if (sourceSegment) {
+      const replace = (items) => items.map((item) => {
+        // Never resurrect a deleted clip or overwrite a changed source range.
+        if (item.id !== sourceSegment.id || item.src !== sourceSegment.src ||
+            item.duration !== sourceSegment.duration || item.sourceStart !== sourceSegment.sourceStart ||
+            item.sourceDuration !== sourceSegment.sourceDuration ||
+            item.playbackRate !== sourceSegment.playbackRate ||
+            JSON.stringify(item.speedCurve) !== JSON.stringify(sourceSegment.speedCurve)) return item;
+        return {
+          ...item, ...getVisualAssetPayload(asset), duration: item.duration,
+          speedCurve: undefined, cinematicDepth: undefined, photoParallax: undefined,
+          subjectEffect: undefined, repair: undefined, enhancement: undefined,
+          volume: item.volume ?? 1, spatialEffect: item.spatialEffect, spatialAmount: item.spatialAmount,
+          sourceAudioDisabled: item.sourceAudioDisabled === true, audioSeparated: item.audioSeparated === true,
+          sourceAudioOriginAssetId: item.sourceAudioOriginAssetId || item.assetId,
+          sourceAudioTiming: item.sourceAudioTiming || (Number.isFinite(item.sourceAudioOffset) || item.audioSeparated
+            ? { sourceStart: item.sourceStart, sourceDuration: item.sourceDuration,
+              playbackRate: item.playbackRate, speedCurve: item.speedCurve } : undefined),
+          depthMapSourceAssetId: sourceSegment.assetId || "",
+        };
+      });
+      if (!depthReplacementLocksRef.current.image) setVisualSegments(replace);
+      // A picture-in-picture analysis replaces its own lane, never the main sequence.
+      if (!depthReplacementLocksRef.current.overlay) setVisualOverlaySegments(replace);
+      setIsPlaying(false);
+    }
+    return asset;
+  };
   const handleOpticalFlowAssetReady = (assetDraft) => {
     const id = crypto.randomUUID();
     const src = URL.createObjectURL(assetDraft.blob);
@@ -675,6 +718,26 @@ export function App() {
     setScript, setSelectedSegmentId, setSelectedTrack,
     setVisionRecords, t, trackLocks,
   });
+  const captionVisualTarget = selectedCaptionSegment && getVisualSegmentTimeline(visualSegments).find(range => selectedCaptionSegment.start >= range.start - 0.000001 && selectedCaptionSegment.end <= range.end + 0.000001);
+  const toggleCaptionVisualLink = () => {
+    if (!selectedCaptionSegment || trackLocks.caption) return;
+    const id=selectedCaptionSegment.id, owner=captionVisualTarget?.id;
+    if (!selectedCaptionSegment.visualSegmentId && !owner) return;
+    setCaptionSegments(items=>items.map(item=>{
+      if(item.id!==id)return item;
+      const {visualSegmentId:previous,...rest}=item;
+      return previous ? rest : {...item,visualSegmentId:owner};
+    }));
+  };
+  const makeTimedVisualAssociation = (segment, setter, locked) => {
+    if (!segment) return null;
+    const owner=getVisualSegmentTimeline(visualSegments).find(range=>segment.start>=range.start-0.000001 && segment.start+segment.duration<=range.end+0.000001);
+    return {linked:Boolean(segment.visualSegmentId),disabled:Boolean(locked||(!segment.visualSegmentId&&!owner)),toggle:()=>{
+      if(locked||(!segment.visualSegmentId&&!owner))return;
+      setter(current=>current.map(item=>{if(item.id!==segment.id)return item;const {visualSegmentId:previous,...rest}=item;return previous?rest:{...item,visualSegmentId:owner.id};}));
+    }};
+  };
+  const audioVisualAssociation = selectedTrack === "audio" ? makeTimedVisualAssociation(selectedAudioSegment,setAudioSegments,isTimedSegmentLaneLocked(audioSegments,selectedAudioSegment?.id,trackLocks)) : null;
   const importCaptionSegments = (importedSegments, mode, skipped = 0) => {
     const nextSegments = mode === "append"
       ? appendImportedCaptions(captionSegments, importedSegments)
@@ -707,7 +770,8 @@ export function App() {
     setStatus, setStatusText, setTimelineHorizon, sourceAudioBlob, sourceAudioDuration,
     sourceAudioAssetId, sourceAudioRef, sourceAudioStart, sourceAudioUrlRef, t,
   });
-  const moveSourceAudioToAudioLane = ({ segmentId = "source-audio", start = 0, lane = 0 } = {}) => {
+  const moveSourceAudioToAudioLane = ({ segmentId = "source-audio", start = 0, lane = 0, processingPatch = null } = {}) => {
+    if (trackLocks.source || trackLocks.audio || trackLocks[`audio-${lane}`] || trackLocks.image) return false;
     if (!(sourceAudioBlob instanceof Blob)) return false;
     const linkedPiece = sourceAudioLinked && segmentId !== "source-audio"
       ? linkedSourceAudioSegments.find((segment) => segment.id === segmentId) ?? null
@@ -723,7 +787,7 @@ export function App() {
       0,
       Number(linkedPiece?.sourceDuration) || Math.min(sourceAudioDuration - sourceStart, duration * playbackRate),
     );
-    const nextSegment = {
+    let nextSegment = {
       id: nextId,
       blob: sourceAudioBlob,
       url: nextUrl,
@@ -748,7 +812,16 @@ export function App() {
       assetId: linkedPiece?.assetId || sourceAudioAssetId || "",
       sourceVisualSegmentId: linkedPiece?.id || "",
       sourceAudioWasLinked: Boolean(linkedPiece),
+      ...(linkedPiece && Math.abs((Number(start) || 0) - linkedPiece.start) < 0.000001 ? { visualSegmentId: linkedPiece.id } : {}),
     };
+
+    if (processingPatch) {
+      nextSegment = applyProcessedSourceMedia(nextSegment, processingPatch);
+      if (!nextSegment) { URL.revokeObjectURL(nextUrl); return false; }
+      URL.revokeObjectURL(nextUrl);
+      if (linkedPiece) nextSegment.visualSegmentId = linkedPiece.id;
+    }
+    imageUrlRefs.current.add(nextSegment.url);
 
     const hasExplicitSourceMappings = visualSegments.some((segment) => (
       segment.type === "video" && Number.isFinite(segment.sourceAudioOffset)
@@ -766,6 +839,13 @@ export function App() {
     });
     setVisualSegments(nextVisualSegments);
     setAudioSegments((segments) => [...segments, nextSegment]);
+    if (processingPatch) {
+      const oldId = linkedPiece?.id || "source-audio";
+      setCaptionSegments(items => items.map(item => ({ ...item,
+        ...(item.audioSegmentId === oldId ? { audioSegmentId: nextId } : {}),
+        ...(item.detachedAudioSegmentId === oldId ? { detachedAudioSegmentId: nextId } : {}),
+      })));
+    }
 
     const remainingLinkedPieces = sourceAudioLinked
       ? getLinkedSourceAudioSegments(nextVisualSegments, sourceAudioAssetId, sourceAudioDuration)
@@ -808,8 +888,12 @@ export function App() {
     : selectedTrack === "music" && musicBlob
       ? { ...(selectedMusicSegment ?? musicSegments[0] ?? { id: "music-audio", start: musicStart, duration: musicDuration, sourceStart: 0, sourceDuration: musicDuration, playbackRate: 1 }), blob: musicBlob, name: musicName || t("musicTrack"), segmentId: selectedMusicSegment?.id || musicSegments[0]?.id || "music-audio", track: "music", volume: selectedMusicSegment?.volume ?? musicSegments[0]?.volume ?? musicVolume, canChangeSpeed: true }
       : selectedTrack === "source" && sourceAudioBlob
-        ? { ...(selectedSourceAudioPiece ?? {}), blob: sourceAudioBlob, name: sourceAudioName, start: selectedSourceAudioPiece?.start ?? sourceAudioStart, sourceStart: selectedSourceAudioPiece?.sourceStart ?? 0, duration: selectedSourceAudioPiece?.duration ?? sourceAudioDuration, sourceDuration: selectedSourceAudioPiece?.sourceDuration ?? sourceAudioDuration, playbackRate: selectedSourceAudioPiece?.playbackRate ?? 1, segmentId: selectedSourceAudioSegmentId || "source-audio", track: "source", volume: selectedSourceAudioPiece?.volume ?? sourceAudioVolume, spatialEffect: sourceAudioSpatialEffect, spatialAmount: sourceAudioSpatialAmount, canChangeStart: !sourceAudioLinked, canChangeSpeed: Boolean(sourceAudioLinked && selectedSourceAudioPiece), voiceColorOriginalBlob: sourceVoiceColorOriginalRef.current?.blob || null }
-        : null;
+        ? { ...(selectedSourceAudioPiece ?? {}), blob: sourceAudioBlob, url: sourceAudioUrl, peaks: selectedSourceAudioPiece ? sliceSourceAudioPeaks(sourceAudioPeaks, selectedSourceAudioPiece, sourceAudioDuration) : sourceAudioPeaks, name: sourceAudioName, start: selectedSourceAudioPiece?.start ?? sourceAudioStart, sourceStart: selectedSourceAudioPiece?.sourceStart ?? 0, duration: selectedSourceAudioPiece?.duration ?? sourceAudioDuration, sourceDuration: selectedSourceAudioPiece?.sourceDuration ?? sourceAudioDuration, playbackRate: selectedSourceAudioPiece?.playbackRate ?? 1, segmentId: selectedSourceAudioSegmentId || "source-audio", track: "source", volume: selectedSourceAudioPiece?.volume ?? sourceAudioVolume, spatialEffect: sourceAudioSpatialEffect, spatialAmount: sourceAudioSpatialAmount, canChangeStart: !sourceAudioLinked, canChangeSpeed: Boolean(sourceAudioLinked && selectedSourceAudioPiece), voiceColorOriginalBlob: sourceVoiceColorOriginalRef.current?.blob || null }
+        : selectedTrack === "image" && selectedVisualSegment?.type === "video"
+          ? { ...selectedVisualSegment, segmentId: selectedVisualSegment.id, track: "image", start: selectedVisualRange?.start ?? 0, canChangeStart: false, canChangeSpeed: false, embeddedVideo: true }
+          : selectedTrack === "overlay" && selectedVisualOverlay?.type === "video"
+            ? { ...selectedVisualOverlay, segmentId: selectedVisualOverlay.id, track: "overlay", canChangeStart: false, canChangeSpeed: false, embeddedVideo: true }
+            : null;
   const separateSelectedAudioVocals = () => selectedAudioToolTarget?.track === "source"
     ? separateSourceVocals()
     : selectedAudioToolTarget && separateAudioClipVocals(selectedAudioToolTarget);
@@ -818,7 +902,7 @@ export function App() {
     chooseInterfaceLanguage, clearAllVisionState, selectTool, toggleTrackLock,
     toggleTrackVisibility, useHistoryItem,
   } = createEditorCommandActions({
-    notify, replaceAudio, script, selectedTrack, setActiveTool, setAvatarPanelOpen, setCaptionSegments,
+    notify, replaceAudio, script, selectedTrack, selectedVisualSegment, selectedVisualOverlay, setActiveTool, setAvatarPanelOpen, setCaptionSegments,
     setIntroClosing, setScript, setSelectedSegmentId, setSelectedTrack,
     setSelectedVoiceId, setTrackLocks, setTrackVisibility, setUiLanguage,
     setVisionJob, setVisionRecords, setVoiceTab, visionAbortControllerRef,
@@ -830,7 +914,7 @@ export function App() {
     getCurrentVisualAssetSnapshot, getVisualDurationForAsset, replaceVisualTimeline,
     setCurrentVisualAsset, updateVisualAssetInTimeline,
   } = createVisualTimelineActions({
-    audioBlob, audioDuration, captionDuration,
+    audioBlob, audioDuration, captionDuration, audioSegments, captionSegments, stickerSegments, setAudioSegments, setCaptionSegments, setStickerSegments, setScript,
     extractVideoSourceAudio: (...args) => extractVideoSourceAudio(...args),
     imageDuration, imageMeta, imageName, imageSrc, musicBlob, musicDuration, notify, rippleTimelineAfter,
     previewVisualSegment, script, seekTo: (...args) => seekTo(...args), setCurrentTime,
@@ -845,9 +929,10 @@ export function App() {
   } = createStickerTimelineActions({
     estimatedDuration, notify, seekTo: (...args) => seekTo(...args), setActiveTool,
     setSelectedStickerId, setSelectedStickerSegmentId, setSelectedTrack,
-    setStickerSegments, stickerSegments, t, timelineDurationRef, trackLocks,
+    setStickerSegments, stickerSegments, t, timelineDurationRef, trackLocks, visualSegments,
   });
   const selectedStickerSegment = stickerSegments.find((segment) => segment.id === selectedStickerSegmentId) ?? currentStickerSegment;
+  const stickerVisualAssociation = makeTimedVisualAssociation(selectedStickerSegment,setStickerSegments,trackLocks.sticker);
   useEffect(() => {
     const normalized = normalizeTimedSegmentIds(stickerSegments, "sticker");
     if (normalized !== stickerSegments) setStickerSegments(normalized);
@@ -897,7 +982,7 @@ export function App() {
 
   const { deleteAudioSegment, toggleAudioSegmentReverse, updateAudioSegment } = createAudioClipActions({
     audioSegmentRefs, audioSegments, notify, setAudioSegments, setCaptionSegments,
-    setSelectedAudioSegmentId, setTimelineHorizon, t,
+    setSelectedAudioSegmentId, setTimelineHorizon, t, trackLocks,
   });
   const handleVoiceColorAssetReady = async ({ blob, decoded, profileName, sourceName }) => {
     const id = crypto.randomUUID(); const src = URL.createObjectURL(blob); imageUrlRefs.current.add(src);
@@ -967,6 +1052,17 @@ export function App() {
     return true;
   };
   const updateSelectedTrackAudioSegment = (id, patch) => {
+    if (["image", "overlay"].includes(selectedTrack)) {
+      const lock = selectedTrack === "image" ? trackLocks.image : trackLocks.overlay;
+      if (lock) return;
+      const audioPatch = {};
+      if (Number.isFinite(patch.volume)) audioPatch.volume = Math.max(0, Math.min(4, patch.volume));
+      if (typeof patch.spatialEffect === "string") audioPatch.spatialEffect = patch.spatialEffect;
+      if (Number.isFinite(patch.spatialAmount)) audioPatch.spatialAmount = Math.max(0, Math.min(1, patch.spatialAmount));
+      const update = selectedTrack === "image" ? setVisualSegments : setVisualOverlaySegments;
+      update(items => items.map(item => item.id === id && item.type === "video" ? { ...item, ...audioPatch } : item));
+      return;
+    }
     if (selectedTrack === "audio") return updateAudioSegment(id, patch);
     if (selectedTrack === "music") {
       setMusicSegments((segments) => {
@@ -987,6 +1083,12 @@ export function App() {
       return;
     }
     if (selectedTrack === "source") {
+      if (patch.blob instanceof Blob) {
+        const lane = getSourceProcessingLane(audioSegments, trackLocks);
+        if (lane === null) return false;
+        const piece = linkedSourceAudioSegments.find(item => item.id === id);
+        return moveSourceAudioToAudioLane({ segmentId: id, start: piece?.start ?? sourceAudioStart, lane, processingPatch: patch });
+      }
       if (Number.isFinite(patch.volume)) {
         const volume = Math.max(0, Math.min(4, patch.volume));
         if (sourceAudioLinked && id !== "source-audio") setVisualSegments((items) => items.map((item) => item.id === id ? { ...item, sourceAudioVolume: volume } : item));
@@ -1019,6 +1121,7 @@ export function App() {
   });
 
   const adjustSelectedSegmentWeight = createTimelineDurationActions({
+    uiLanguage,
     captionSegments, commitCaptionSegments, commitStickerSegments,
     commitVisualSegments, currentStickerSegmentIndex, currentVisualSegmentIndex,
     focusedSegmentIndex, getCurrentVisualAssetSnapshot, imageDuration, imageSrc,
@@ -1229,6 +1332,8 @@ export function App() {
     depthRecords,
     setDepthRecords,
     updateEffect: updateSelectedCinematicDepth,
+    onAssetReady: handleDepthMapAssetReady,
+    isBlocked: () => { const blocked = webMcp.isAiRunning(); if (blocked) notify(webMcp.t("busy")); return blocked; },
     notify,
     setCurrentTime,
     timelineStart: depthTimelineStart,
@@ -1240,6 +1345,7 @@ export function App() {
     setDepthRecords,
     updateEffect: updateSelectedPhotoParallax,
     effectField: "photoParallax",
+    isBlocked: () => { const blocked = webMcp.isAiRunning(); if (blocked) notify(webMcp.t("busy")); return blocked; },
     readyToastKey: "parallaxReadyToast",
     notify,
     setCurrentTime,
@@ -1321,7 +1427,7 @@ export function App() {
   const handleExportVideo = useVideoExport(videoCompositionContext);
   const { startCaptionResize, startTimelineClipDrag } = createTimelineReorderControls({
     timelineMarkers,
-    audioSegments, captionSegments, captionTargetDuration, commitCaptionSegments, commitVisualSegments,
+    audioSegments, captionSegments, captionTargetDuration, commitCaptionSegments, commitVisualSegments, setAudioSegments,
     notify, renderedVisualSegments, seekTo, setSelectedSegmentId, setSelectedTrack,
     setSelectedVisualSegmentId, setTimelineClipDrag, suppressTimelineClipClickRef,
     timelineClipDragRef, timelineDuration, trackLocks, visualSegments, pauseForTimelineEdit,
@@ -1333,7 +1439,7 @@ export function App() {
   // Browser agents use the live editor action and normal undo history.
   const getBrowserRuntimeProject = () => ({
     ...getProjectSnapshot(), visualSegments, visualOverlaySegments, audioSegments, musicSegments,
-    musicBlob, musicUrl, musicPeaks, sourceAudioBlob, sourceAudioUrl, audioBlob,
+    musicBlob, musicUrl, musicPeaks, sourceAudioBlob, sourceAudioUrl, audioBlob, depthRecords,
   });
   const applyBrowserReview = (review, message) => {
     if (!review.hasChanges) throw Object.assign(new Error(), { code: "NO_CHANGES" });
@@ -1405,6 +1511,15 @@ export function App() {
     exportVideo: handleExportVideo, exportSettings, exportContentDuration, ratio, exporting,
     applyReview: applyBrowserReview,
     sampleMedia: (input, options) => sampleEditorMedia(videoCompositionContext, input, options),
+    runDepthTask: (request, execution) => cinematicDepth.analyze({
+      output: request.kind === "depth-map" ? "depth-map" : "relight", quality: request.quality,
+      inverted: request.inverted ?? false, reanalyze: request.reanalyze,
+    }, { ...execution, onAssetReady: (draft) => {
+      execution.validateSource();
+      // Agent output stays in My assets until a separate reviewed insertion.
+      const asset = handleDepthMapAssetReady(draft);
+      return { id: asset.id, duration: asset.duration, width: asset.width, height: asset.height };
+    } }),
     commitAiVoiceAssets: ({ items }, { signal } = {}) => {
       if (signal?.aborted) throw Object.assign(new Error("CANCELLED"), { name: "AbortError" });
       const assets = items.map((item) => {
@@ -1423,7 +1538,7 @@ export function App() {
     seek: (time) => { pauseTimelineMedia(); setIsPlaying(false); seekTo(time, { immediate: true }); },
     isBusy: () => Boolean(projectImportProgress || exporting || timelineClipDragRef.current || pointerAssetDragRef.current ||
       isDragging || draggedAssetId || ["generating", "captioning"].includes(status) || visualSegments.some((clip) => clip.preparing) ||
-      visualOverlaySegments.some((clip) => clip.preparing) || visionJob.running || avatarJob.running || autoEdit.job.running),
+      visualOverlaySegments.some((clip) => clip.preparing) || visionJob.running || avatarJob.running || autoEdit.job.running || cinematicDepth.job.running || photoParallaxDepth.job.running),
   });
 
   const guardAgentAi = (action) => (...args) => {
@@ -1548,6 +1663,7 @@ export function App() {
           previewVideoRef={previewVideoRef}
           onPreviewVideoTimeUpdate={previewVisionBaseAnalysis?.kind === "video-timeline" ? setPreviewVideoMediaTime : undefined}
           previewVisualSrc={previewVisualSrc}
+          previewVisualSegment={previewVisualSegment}
           previewVisualRenderSrc={previewVisualRenderSrc}
           previewVisionMaskUrl={previewVisionMaskUrl}
           previewVisualType={previewVisualType}
@@ -1650,6 +1766,7 @@ export function App() {
         />
 
         <VoicePanel
+          captionHighlightDisabled={trackLocks.caption}
           t={t}
           activeTool={activeTool}
           captionVoiceFocusRequest={captionVoiceFocusRequest}
@@ -1702,6 +1819,10 @@ export function App() {
           musicUrl={musicUrl}
           captionSegments={captionSegments}
           selectedCaptionSegment={selectedCaptionSegment}
+          captionVisualLinkDisabled={Boolean(trackLocks.caption || (!selectedCaptionSegment?.visualSegmentId && !captionVisualTarget))}
+          toggleCaptionVisualLink={toggleCaptionVisualLink}
+          audioVisualAssociation={audioVisualAssociation}
+          stickerVisualAssociation={stickerVisualAssociation}
           selectedSegmentId={selectedSegmentId}
           setSelectedSegmentId={setSelectedSegmentId}
           currentSegmentIndex={currentSegmentIndex}
@@ -1742,6 +1863,8 @@ export function App() {
           selectedTrack={selectedTrack}
           selectedAudioSegment={selectedAudioSegment}
           selectedTrackAudioSegment={selectedAudioToolTarget}
+          audioProcessingDisabled={selectedTrack === "source" ? Boolean(trackLocks.source || trackLocks.audio || trackLocks.image) : selectedTrack !== "audio" || isTimedSegmentLaneLocked(audioSegments, selectedAudioSegmentId, trackLocks)}
+          registerAudioProcessingUrl={url => imageUrlRefs.current.add(url)}
           mobileInspectorOrigin={mobilePanel === "inspector" ? mobilePanelOrigin : ""}
           mobileInspectorSection={isCompactViewport && mobilePanel === "inspector" ? mobileInspectorSection : ""}
           onCloseMobileInspector={() => changeMobilePanel("")}
@@ -1795,6 +1918,7 @@ export function App() {
       </section>
 
       <Timeline
+        audioProcessingLabel={getAudioProcessingCopy(uiLanguage).processing}
         timelineMarkers={timelineMarkers}
         setTimelineMarkers={setTimelineMarkers}
         t={t}
@@ -1957,6 +2081,7 @@ export function App() {
             audio: t("mobileClipAudio"),
             fade: t("mobileClipFade"),
             "voice-color": t("voiceColorTab", "音色"),
+            processing: getAudioProcessingCopy(uiLanguage).processing,
             sticker: t("stickerProperties"),
           }[mobileInspectorSection]) || (mobilePanelOrigin === "audio-clip"
             ? t("audioClipProperties")

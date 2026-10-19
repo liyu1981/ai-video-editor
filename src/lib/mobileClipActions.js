@@ -1,6 +1,6 @@
-const AUDIO_CLIP_ACTIONS = ["dismiss", "audio-properties", "audio-fade", "audio-spatial", "audio-voice-color", "split", "captions", "separate", "delete"];
+const AUDIO_CLIP_ACTIONS = ["dismiss", "audio-properties", "audio-fade", "audio-spatial", "audio-voice-color", "audio-processing", "split", "captions", "separate", "delete"];
 const MUSIC_CLIP_ACTIONS = ["dismiss", "audio-properties", "audio-fade", "audio-spatial", "split", "captions", "separate", "delete"];
-const SOURCE_AUDIO_CLIP_ACTIONS = ["dismiss", "audio-properties", "audio-spatial", "audio-voice-color", "split", "captions", "delete"];
+const SOURCE_AUDIO_CLIP_ACTIONS = ["dismiss", "audio-properties", "audio-spatial", "audio-voice-color", "audio-processing", "split", "captions", "delete"];
 const STICKER_CLIP_ACTIONS = ["dismiss", "sticker-properties", "copy", "delete"];
 
 export function getMobileClipActionIds(track, options = {}) {
@@ -17,7 +17,7 @@ export function getMobileClipActionIds(track, options = {}) {
       ...(options.isVector ? ["visual-vector"] : ["visual-mask", "visual-filter"]),
       ...(track === "overlay" && !options.isVector ? ["visual-effects"] : []),
       "visual-animation",
-      ...(!options.isVector && options.isVideo ? ["visual-speed"] : []),
+      ...(!options.isVector && options.isVideo ? ["visual-speed", "audio-properties", "audio-spatial"] : []),
       ...(track === "image" && !options.isVector ? ["visual-repair"] : []),
       ...(track === "overlay" ? ["overlay-timing"] : []),
       "split",

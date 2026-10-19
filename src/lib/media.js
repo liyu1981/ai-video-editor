@@ -1,3 +1,5 @@
+import { composeRepairWithWebCodecs } from "./repairVideoComposition.js";
+import { createRepairRangeEncoding } from "./repairRangeEncoding.js";
 import ffmpegCoreURL from "@ffmpeg/core?url";
 import ffmpegCoreWasmURL from "@ffmpeg/core/wasm?url";
 import ffmpegClassWorkerURL from "@ffmpeg/ffmpeg/worker?worker&url";
@@ -38,7 +40,7 @@ import { emitMediaBackendDiagnostic, getMediaFileExtension, isLibavCompatibility
 import { getVectorDesignAppearance, getVectorRenderSource } from "./vectorDesign.js";
 import { hasSubjectEffect, normalizeSubjectEffect } from "./subjectEffects.js";
 import { resolveSubjectMaterialShadow } from "./subjectMaterialRendering.js";
-import { drawCinematicDepthFrame, normalizeCinematicDepth, resolveDepthAnalysisAtTime } from "./depthOfField.js";
+import { prepareDepthFrame, getDepthFrame, drawCinematicDepthFrame, normalizeCinematicDepth, resolveDepthAnalysisAtTime } from "./depthOfField.js";
 import { drawPhotoParallaxFrame, normalizePhotoParallax } from "./photoParallax.js";
 import { createVideoTrackFrame } from "./videoTrackFrames.js";
 import { composeColorGradeFilter, resolveColorGrade } from "./colorGrade.js";
@@ -237,6 +239,7 @@ async function extractVideoTrackFramesWithWebCodecs(src, sampleTimes, options) {
     yieldEveryFrames = 0,
   } = options;
   let input = null;
+  const abortDecode = () => input?.dispose();
   try {
     onProgress?.(0.03);
     const { ALL_FORMATS, BlobSource, CanvasSink, Input, UrlSource } = await import("mediabunny");
@@ -253,6 +256,8 @@ async function extractVideoTrackFramesWithWebCodecs(src, sampleTimes, options) {
         });
     if (signal?.aborted) throw signal.reason || new DOMException("Aborted", "AbortError");
     input = new Input({ source, formats: ALL_FORMATS });
+    signal?.addEventListener("abort", abortDecode, { once: true });
+    if (signal?.aborted) throw signal.reason || new DOMException("Aborted", "AbortError");
     const track = await input.getPrimaryVideoTrack();
     if (!track) return null;
     onProgress?.(0.06);
@@ -307,10 +312,12 @@ async function extractVideoTrackFramesWithWebCodecs(src, sampleTimes, options) {
     onProgress?.(1);
     return frames;
   } catch (error) {
+    if (signal?.aborted) throw signal.reason || new DOMException("Aborted", "AbortError");
     if (error?.name === "AbortError") throw error;
     console.warn("Video timeline WebCodecs extraction unavailable; using native seek fallback.", error);
     return null;
   } finally {
+    signal?.removeEventListener("abort", abortDecode);
     input?.dispose();
   }
 }
@@ -1216,11 +1223,11 @@ export function drawPreviewFrame(context, visual, canvas, options) {
   const primaryFilter = composeColorGradeFilter(filter, resolveColorGrade(visualEffects?.keyframes, visualTime, visualEffects?.colorGrade));
   const drawPrimaryVisual = (targetContext, targetCanvas) => {
     if ((photoParallax.enabled || cinematicDepth.enabled) && depth?.depthVisual) {
-      if (photoParallax.enabled) drawPhotoParallaxFrame(targetContext, visual, targetCanvas, {
+      if (photoParallax.enabled && !(cinematicDepth.enabled && cinematicDepth.output !== "cinematic")) drawPhotoParallaxFrame(targetContext, visual, targetCanvas, {
         effect: photoParallax, depthVisual: depth.depthVisual, fitMode, filter: primaryFilter, time: visualTime, clear: false,
       });
       else drawCinematicDepthFrame(targetContext, visual, targetCanvas, {
-        effect: cinematicDepth, depthVisual: depth.depthVisual, fitMode, filter: primaryFilter, clear: false,
+        effect: cinematicDepth, ...depth, depthVisual: depth.depthVisual, fitMode, filter: primaryFilter, clear: false,
       });
       const sourceSize = getVisualDimensions(visual);
       const fitRect = getVisualFitRect(sourceSize, targetCanvas, fitMode);
@@ -1339,11 +1346,11 @@ export function drawPreviewFrame(context, visual, canvas, options) {
       const overlayDepth = normalizeCinematicDepth(overlay.cinematicDepth);
       const overlayParallax = normalizePhotoParallax(overlay.photoParallax);
       if ((overlayParallax.enabled || overlayDepth.enabled) && overlay.depth?.depthVisual) {
-        if (overlayParallax.enabled) drawPhotoParallaxFrame(targetContext, overlayVisual, canvas, {
+        if (overlayParallax.enabled && !(overlayDepth.enabled && overlayDepth.output !== "cinematic")) drawPhotoParallaxFrame(targetContext, overlayVisual, canvas, {
           effect: overlayParallax, depthVisual: overlay.depth.depthVisual, fitMode: "contain", filter: overlayFilter, time: overlayTime, clear: false,
         });
         else drawCinematicDepthFrame(targetContext, overlayVisual, canvas, {
-          effect: overlayDepth, depthVisual: overlay.depth.depthVisual, fitMode: "contain", filter: overlayFilter, clear: false,
+          effect: overlayDepth, ...overlay.depth, depthVisual: overlay.depth.depthVisual, fitMode: "contain", filter: overlayFilter, clear: false,
         });
       } else {
         drawFittedVisual(
@@ -1722,8 +1729,8 @@ export async function exportBrowserVideo({
           sourceDuration: Math.max(0, segment.sourceDuration || 0),
           playbackRate: normalizeVisualPlaybackRate(segment.playbackRate),
           outputDuration: Math.max(0, segment.duration || 0),
-          spatialEffect: sourceAudioSpatialEffect,
-          spatialAmount: sourceAudioSpatialAmount,
+          spatialEffect: segment.spatialEffect ?? sourceAudioSpatialEffect,
+          spatialAmount: segment.spatialAmount ?? sourceAudioSpatialAmount,
         }))
       : sourceAudioBlob
         ? [{ blob: sourceAudioBlob, volume: sourceAudioVolume, role: "source", start: Math.max(0, sourceAudioStart || 0), spatialEffect: sourceAudioSpatialEffect, spatialAmount: sourceAudioSpatialAmount }]
@@ -1955,7 +1962,7 @@ export async function exportBrowserVideo({
         : Math.max(0, timelineTime - item.segment.start);
       const vision = resolveVisionAnalysisAtTime(item.segment.vision || null, sourceTime);
       const depthSample = resolveDepthAnalysisAtTime(item.segment.depth || null, sourceTime);
-      if (depthSample?.depthUrl) void item.depthCache?.prepare(depthSample.depthUrl);
+      if (depthSample?.depthUrl) void prepareDepthFrame(item.depthCache, depthSample);
       return {
         ...item,
         renderSegment: {
@@ -1965,7 +1972,7 @@ export async function exportBrowserVideo({
             options: item.segment.vision?.options || vision.options,
             maskVisual: item.temporalMaskCache?.get(vision.cutoutUrl) || null,
           } } : {}),
-          ...(depthSample ? { depth: { ...depthSample, depthVisual: item.depthCache?.get(depthSample.depthUrl) || null } } : {}),
+          ...(depthSample ? { depth: getDepthFrame(item.depthCache, depthSample) } : {}),
         },
       };
     });
@@ -1996,9 +2003,9 @@ export async function exportBrowserVideo({
         }
       : null;
     const resolvedDepth = resolveDepthAnalysisAtTime(visualItem.segment.depth ?? null, visualSourceTime);
-    if (resolvedDepth?.depthUrl) void visualItem.depthCache?.prepare(resolvedDepth.depthUrl);
+    if (resolvedDepth?.depthUrl) void prepareDepthFrame(visualItem.depthCache, resolvedDepth);
     const frameDepth = resolvedDepth
-      ? { ...resolvedDepth, depthVisual: visualItem.depthCache?.get(resolvedDepth.depthUrl) || null }
+      ? getDepthFrame(visualItem.depthCache, resolvedDepth)
       : null;
     drawPreviewFrame(context, exportVisual, canvas, {
       subtitle: exportCaption,
@@ -2080,9 +2087,9 @@ export async function exportBrowserVideo({
         }
       : null;
     const finalResolvedDepth = resolveDepthAnalysisAtTime(finalVisualItem.segment.depth ?? null, finalVisualSourceTime);
-    if (finalResolvedDepth?.depthUrl) await finalVisualItem.depthCache?.prepare(finalResolvedDepth.depthUrl);
+    if (finalResolvedDepth?.depthUrl) await prepareDepthFrame(finalVisualItem.depthCache, finalResolvedDepth);
     const finalFrameDepth = finalResolvedDepth
-      ? { ...finalResolvedDepth, depthVisual: finalVisualItem.depthCache?.get(finalResolvedDepth.depthUrl) || null }
+      ? getDepthFrame(finalVisualItem.depthCache, finalResolvedDepth)
       : null;
     drawPreviewFrame(context, finalVisualItem.cutoutVisual || finalVisualItem.visual, canvas, {
       subtitle:
@@ -2211,6 +2218,94 @@ function getAbortableFfmpeg(signal) {
       settled = true;
       reject(error);
     });
+  });
+}
+
+// Repair only supplies selected PNG frames. FFmpeg decodes the original video
+// directly for the rest instead of a browser seek/PNG round trip for every frame.
+export async function encodeRepairedVideoRanges({
+  frames, sourceBlob, sourceStart, sourceDuration, sourceDecodeStart = sourceStart, signal, onProgress,
+}) {
+  if (typeof Worker !== "undefined" && typeof VideoEncoder !== "undefined") {
+    try {
+      onProgress?.({ progress: 91, phaseKey: "remasterPhaseLoadEncoder" });
+      const blob = await composeRepairWithWebCodecs({ frames, sourceBlob, sourceStart, sourceDuration, signal, onProgress });
+      onProgress?.({ progress: 99, phaseKey: "remasterPhaseCreateAsset" });
+      return blob;
+    } catch (error) {
+      if (signal?.aborted || error.name === "AbortError") throw error;
+      // Unsupported codec, accelerator, or decode failure: preserve all tracks
+      // using the existing software path, without rerunning AI repair.
+      console.info("Native repair composition unavailable; using FFmpeg.", error);
+    }
+  }
+  return runFfmpegTask(async () => {
+    const checkCanceled = () => {
+      if (signal?.aborted) throw createAbortError();
+    };
+    checkCanceled();
+    const id = makeId("repair-ranges");
+    const sourceName = `${id}-source`;
+    const manifestName = `${id}.ffconcat`;
+    const outputName = `${id}.mp4`;
+    const plan = createRepairRangeEncoding(frames, sourceDuration, id, sourceStart - sourceDecodeStart);
+    const files = [];
+    let ffmpeg;
+    let terminated = false;
+    const abort = () => {
+      if (!ffmpeg) return;
+      terminated = true;
+      ffmpeg.terminate();
+      ffmpegLoadPromise = null;
+    };
+    signal?.addEventListener("abort", abort, { once: true });
+    const progress = ({ time }) => {
+      onProgress?.({
+        progress: Math.min(98, 92 + Math.max(0, time / 1e6) / sourceDuration * 6),
+        phaseKey: "remasterPhaseEncodeVideo",
+      });
+    };
+    try {
+      onProgress?.({ progress: 91, phaseKey: "remasterPhaseLoadEncoder" });
+      ffmpeg = await getAbortableFfmpeg(signal);
+      checkCanceled();
+      files.push(sourceName);
+      await ffmpeg.writeFile(sourceName, new Uint8Array(await sourceBlob.arrayBuffer()));
+      for (let index = 0; index < frames.length; index += 1) {
+        checkCanceled();
+        files.push(plan.names[index]);
+        await ffmpeg.writeFile(plan.names[index], new Uint8Array(await frames[index].blob.arrayBuffer()));
+      }
+      checkCanceled();
+      files.push(manifestName, outputName);
+      await ffmpeg.writeFile(manifestName, new TextEncoder().encode(plan.manifest));
+      ffmpeg.on("progress", progress);
+      onProgress?.({ progress: 92, phaseKey: "remasterPhaseEncodeVideo" });
+      const code = await ffmpeg.exec([
+        "-ss", String(sourceDecodeStart), "-t", String(sourceDuration + sourceStart - sourceDecodeStart), "-i", sourceName,
+        "-f", "concat", "-safe", "0", "-i", manifestName,
+        "-filter_complex", plan.filter,
+        "-map", "[repaired]", "-map", "0:a?",
+        "-c:v", "libx264", "-preset", "veryfast", "-crf", "18",
+        "-pix_fmt", "yuv420p", "-vsync", "0", "-enc_time_base", "1:1000000",
+        "-af", `atrim=start=${sourceStart - sourceDecodeStart},asetpts=PTS-STARTPTS`,
+        "-c:a", "aac", "-b:a", "192k",
+        "-t", String(sourceDuration), "-movflags", "faststart", outputName,
+      ]);
+      checkCanceled();
+      if (code !== 0) throw new Error("Could not compose the repaired video");
+      const data = await ffmpeg.readFile(outputName);
+      checkCanceled();
+      onProgress?.({ progress: 99, phaseKey: "remasterPhaseCreateAsset" });
+      return new Blob([data], { type: "video/mp4" });
+    } catch (error) {
+      checkCanceled();
+      throw error;
+    } finally {
+      signal?.removeEventListener("abort", abort);
+      ffmpeg?.off("progress", progress);
+      if (ffmpeg && !terminated) await Promise.all(files.map((name) => ffmpeg.deleteFile(name).catch(() => {})));
+    }
   });
 }
 

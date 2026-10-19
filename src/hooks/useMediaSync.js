@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { PLAYBACK_UI_FRAME_MS, getAudioSegmentPreviewVolume, getTimelineTrackLocalTime, isAudioSegmentAudible, isTimelineTimeInsideTrack, requestTimelineMediaPlay, setTimelineAudioGain, shouldCorrectPreviewMediaTime } from "../lib/editorRuntime.js";
 import { getLinkedSourceAudioState } from "../lib/sourceAudioSync.js";
 import { filterTimedSegmentsByLaneVisibility } from "../lib/timeline.js";
@@ -43,6 +43,9 @@ export function syncVoiceAudioSegments({ segments, refs, timelineTime, isPlaying
 }
 
 export function useMediaSync(d) {
+  const videoClipRef = useRef(null);
+  const playbackStateRef = useRef(d);
+  playbackStateRef.current = d;
   // Lane packing depends on edits and visibility, never on the playback clock.
   const visibleAudioSegmentIds = useMemo(() => new Set(
     filterTimedSegmentsByLaneVisibility(d.audioSegments, d.trackVisibility).map((segment) => segment.id),
@@ -90,42 +93,44 @@ export function useMediaSync(d) {
     syncTimelineAudioElement(music, { active, shouldPlay: play, expectedTime: expected, playbackRate });
   }, [d.currentTime, d.isPlaying, d.musicDuration, d.musicSegments, d.musicStart, d.musicUrl, d.trackVisibility.music]);
   useEffect(() => { d.currentTimeRef.current = d.currentTime; }, [d.currentTime]);
-  useEffect(() => { d.setPreviewVideoMediaTime(d.previewVisualType === "video" ? Math.max(0, Number(d.previewVisualSegment?.sourceStart) || 0) : 0); }, [d.previewVisualSegment?.id, d.previewVisualSrc, d.previewVisualType]);
   useEffect(() => {
     const v = d.previewVideoRef.current; if (!v || d.previewVisualType !== "video") return;
     const localTime = Math.max(0, d.currentTime - (d.previewVisualRange?.start || 0));
     v.playbackRate = getVisualPlaybackRateAtTime(d.previewVisualSegment, localTime);
     if ("preservesPitch" in v) v.preservesPitch = true;
   }, [d.currentTime, d.previewVisualRange?.start, d.previewVisualSegment, d.previewVisualSrc, d.previewVisualType]);
+  // Metadata restoration and the source-time synchronization below already
+  // locate the requested frame. A separate sourceStart seek here races them
+  // on every clip change and can briefly reveal the opening frame again.
   useEffect(() => {
     const v = d.previewVideoRef.current; if (!v || d.previewVisualType !== "video") return;
-    const sourceStart = Math.max(0, Number(d.previewVisualSegment?.sourceStart) || 0);
-    const max = Math.max(0, (Number(v.duration) || sourceStart) - 0.001);
-    const time = Math.min(sourceStart, max);
-    if (Number.isFinite(time) && Math.abs(v.currentTime - time) > 0.04) {
-      requestLatestVideoFrame(v, time, {
-        immediate: true,
-        onPresented: d.setPreviewVideoMediaTime,
-      });
-    }
-  }, [d.previewVisualSegment?.id, d.previewVisualSegment?.sourceStart, d.previewVisualSrc, d.previewVisualType]);
-  useEffect(() => {
-    const v = d.previewVideoRef.current; if (!v || d.previewVisualType !== "video") return;
+    const clipChanged = videoClipRef.current?.video !== v || videoClipRef.current?.id !== d.previewVisualSegment?.id;
+    videoClipRef.current = { video: v, id: d.previewVisualSegment?.id };
+    if (clipChanged) { v.__timelineFramePending = true; v.pause(); }
+    // Metadata restoration queues the same target after the source is ready.
+    if (v.readyState < 1) return;
     const max = Math.max(0, (Number(v.duration) || d.previewVisualSourceTime) - 0.001);
     const time = Math.min(Math.max(0, d.previewVisualSourceTime), max);
-    if (shouldCorrectPreviewMediaTime({ isPlaying: d.isPlaying, currentTime: v.currentTime, targetTime: time })) {
+    if (clipChanged || shouldCorrectPreviewMediaTime({ isPlaying: d.isPlaying, currentTime: v.currentTime, targetTime: time })) {
       requestLatestVideoFrame(v, time, {
-        onPresented: d.setPreviewVideoMediaTime,
+        immediate: clipChanged,
+        onPresented: mediaTime => {
+          if (d.previewVideoRef.current !== v || videoClipRef.current?.id !== d.previewVisualSegment?.id) return;
+          v.__timelineFramePending = false;
+          d.setPreviewVideoMediaTime(mediaTime);
+          const latest = playbackStateRef.current;
+          if (latest.isPlaying && latest.trackVisibility?.image !== false) requestTimelineMediaPlay(v);
+        },
       });
     }
   }, [d.isPlaying, d.previewVisualSegment?.id, d.previewVisualSourceTime, d.previewVisualSrc, d.previewVisualType]);
   useEffect(() => {
     const v = d.previewVideoRef.current; if (!v || d.previewVisualType !== "video") return;
-    if (!d.isPlaying || d.trackVisibility?.image === false) v.pause(); else requestTimelineMediaPlay(v);
+    if (!d.isPlaying || d.trackVisibility?.image === false) v.pause(); else if (!v.__timelineFramePending) requestTimelineMediaPlay(v);
   }, [d.isPlaying, d.previewVisualSegment?.id, d.previewVisualSrc, d.previewVisualType, d.trackVisibility.image]);
   useEffect(() => {
-    if (d.previewVisualType === "video") setTimelineAudioGain(d.previewVideoRef.current, d.previewVisualSegment?.volume ?? 1);
-  }, [d.previewVideoRef, d.previewVisualType, d.previewVisualSrc, d.previewVisualSegment?.volume]);
+    if (d.previewVisualType === "video") setTimelineAudioGain(d.previewVideoRef.current, d.previewVisualSegment?.volume ?? 1, d.previewVisualSegment?.spatialEffect, d.previewVisualSegment?.spatialAmount);
+  }, [d.previewVideoRef, d.previewVisualType, d.previewVisualSrc, d.previewVisualSegment?.volume, d.previewVisualSegment?.spatialEffect, d.previewVisualSegment?.spatialAmount]);
   // Clip changes and filmstrip refinement must not re-anchor the master clock.
   // Explicit seeks update its refs directly; only playback state or the actual
   // project duration starts a new clock session.
@@ -134,7 +139,32 @@ export function useMediaSync(d) {
     const start = d.currentTimeRef.current >= d.estimatedDuration - 0.02 ? 0 : Math.max(0, d.currentTimeRef.current);
     if (start !== d.currentTimeRef.current) { d.setCurrentTime(start); d.currentTimeRef.current = start; }
     d.visualPlaybackStartTimeRef.current = start; d.visualPlaybackStartedAtRef.current = performance.now(); d.visualPlaybackLastUpdateRef.current = 0;
+    let previousTick = d.visualPlaybackStartedAtRef.current;
+    const bufferedAudio = new Set();
     const tick = (now) => {
+      const state = playbackStateRef.current;
+      const video = state.previewVideoRef.current;
+      const elapsed = Math.max(0, now - previousTick);
+      previousTick = now;
+      // Long GOP seeks can take longer than one UI frame. Keep the project
+      // clock and already-running audio at the requested position until the
+      // native decoder can continue; never chase it with repeated seeks.
+      const waiting = state.previewVisualType === "video" && state.trackVisibility.image !== false
+        && video && !video.error && !video.ended
+        && !(Number.isFinite(video.duration) && video.currentTime >= video.duration - 0.1)
+        && (video.__timelineFramePending || video.seeking || video.readyState < 3
+          || (video.paused && video.__timelinePlayPending));
+      if (waiting) {
+        d.visualPlaybackStartedAtRef.current += elapsed;
+        const media = [...state.audioSegmentRefs.current.values(), state.sourceAudioRef.current, state.musicRef.current];
+        for (const audio of media) {
+          if (audio && !audio.paused) { audio.pause(); bufferedAudio.add(audio); }
+        }
+        d.visualPlaybackFrameRef.current = requestAnimationFrame(tick);
+        return;
+      }
+      for (const audio of bufferedAudio) requestTimelineMediaPlay(audio);
+      bufferedAudio.clear();
       const wallClockTime = Math.min(
         d.estimatedDuration,
         d.visualPlaybackStartTimeRef.current + (now - d.visualPlaybackStartedAtRef.current) / 1000,

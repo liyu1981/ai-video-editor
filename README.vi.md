@@ -5,6 +5,18 @@
 [![skills.sh](https://skills.sh/b/MartinDelophy/ai-video-editor)](https://skills.sh/MartinDelophy/ai-video-editor)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg?style=flat-square)](CONTRIBUTING.md) [![LINUX DO](https://shorturl.at/ggSqS)](https://linux.do)
 
+## Sáng tạo cùng Anna
+
+Phiên bản Anna kết hợp hỗ trợ dựng bằng AI và khả năng tiếp tục dự án:
+
+- Mô tả yêu cầu dựng cho Anna, xem xét kế hoạch dựa trên yêu cầu và siêu dữ liệu của tư liệu, rồi áp dụng việc sắp xếp clip và cắt video đơn giản ở tốc độ 1× được hỗ trợ.
+- Dự án và tư liệu tự động lưu vào đám mây Anna, có thể tiếp tục trên trình duyệt khác với cùng tài khoản. Bạn cũng có thể lưu các bản khôi phục dự án cục bộ.
+- Tinh chỉnh trên dòng thời gian đa rãnh có thể chỉnh sửa, thêm giọng đọc AI và phụ đề thủ công, rồi xuất MP4 bằng bộ mã hóa có sẵn trong trình duyệt.
+
+Đây là bản xem trước dành cho máy tính. Bước lập kế hoạch không phân tích hình ảnh hay âm thanh; tính năng AI cục bộ phụ thuộc vào khả năng của môi trường Anna.
+
+→ [Trải nghiệm Timeline Studio trên Anna](https://anna.partners/store/@martindelophy/timeline-studio)
+
 ## Sử dụng công nghệ tổng hợp sâu có trách nhiệm
 
 Công cụ này sử dụng công nghệ tổng hợp sâu và chỉ dành cho mục đích nghiên cứu kỹ thuật và học tập.
@@ -19,12 +31,11 @@ Người dùng tự chịu mọi trách nhiệm pháp lý phát sinh từ việc
 
 ## Cập nhật dự án
 
-- **2026-09-27** — Phụ đề tự động dùng thời gian từng từ, chia thành cụm ngắn hoặc từng từ để tránh khối chữ dài trong video dọc. Xem trước, xuất video và SRT dùng chung các đoạn có thể chỉnh sửa; giao diện hỗ trợ 13 ngôn ngữ. Giọng nói AI cũng chia văn bản dài trước khi tổng hợp và căn mỗi phụ đề theo âm thanh thực tế, kể cả khi tạo giọng từ phụ đề đang chọn. Hiển thị phụ đề và SRT ẩn dấu phẩy, chấm và chấm phẩy cuối câu, giữ dấu biểu cảm cùng nguyên văn để chỉnh sửa và tạo giọng nói.
-- **2026-09-27** — Khi phát trên máy tính, dòng thời gian chuyển trang ở mốc 85%, đưa đầu phát về khoảng 20%. Cuộn ngang thủ công tạm dừng theo dõi; trở về đầu phát hoặc phát lại sẽ khôi phục. Tạm dừng giữ nguyên khung nhìn.
-- **2026-09-27** — Clip hình và tiếng hợp nhất: video chính và hình trong hình hiển thị tên tệp, ảnh thu nhỏ và sóng âm gốc trong cùng clip. Chỉnh dB từng clip ngay trên sóng âm, thống nhất khi xem trước và xuất, giữ nguyên âm lượng khi tách âm thanh. Hỗ trợ 13 ngôn ngữ. Mọi làn âm thanh dùng sóng chi tiết từ đáy, thay đổi theo độ khuếch đại; đỉnh vượt giới hạn hiển thị có màu cam và giữ nguyên kiểu dáng. Khi kéo đầu phát, bản xem trước cập nhật mà không chờ xác nhận hiển thị; khi thả vẫn kiểm tra khung hình chính xác.
-- **2026-09-21 — Xóa khoảng nghỉ:** menu Thông minh dùng Silero VAD để phát hiện khoảng nghỉ dài ngay trong trình duyệt. Có thể xem lại, chọn cắt đồng bộ video chính và âm thanh gốc, chỉnh ngưỡng và khoảng giữ lại, dùng ripple, hủy và hoàn tác. Giao diện hỗ trợ đủ 13 ngôn ngữ.
-- **2026-09-20 — Bám mốc cho đầu phát:** Kéo đầu phát màu trắng để xem trước hình ảnh trực tiếp và bám vào mốc hoặc hai đầu khoảng, kèm đường căn chỉnh và thời gian. Giữ Alt để kéo tự do. Chi tiết dấu mốc hiển thị Xong trước khi sửa và Áp dụng thay đổi sau khi sửa.
-
+- **2026-10-17** — Sửa liên kết phụ đề, âm thanh và nhãn dán khi chuyển giữa các cảnh, đồng bộ xóa và di chuyển; tránh nhảy vị trí khi chọn phụ đề và tinh gọn tổng quan âm thanh. Có thể tô nổi bật văn bản đã chọn riêng cho từng phụ đề, chọn màu và xóa phần tô.
+- **2026-10-17** — Thêm xử lý âm thanh trong trình duyệt với RNNoise, DeepFilterNet3, EQ, nén, độ lợi và giới hạn; nghe thử, áp dụng và khôi phục bản gốc. Cải thiện bảng âm thanh gốc, căn chỉnh và tô sáng từ khóa phụ đề, phông chữ đa ngôn ngữ, chỉnh sửa liên kết và phát tại ranh giới clip.
+- **2026-10-13** — Phân tích ánh sáng và chuyển đổi video độ sâu dùng lại quy trình trình duyệt qua chuẩn bị, bắt đầu, kiểm tra và hủy WebMCP. Thông số ánh sáng dùng lệnh chung có xem xét và hoàn tác; video của Agent nằm trong Tài sản của tôi cho đến khi chèn qua bước xem xét riêng. Skill ghi rõ quy trình và giới hạn CLI cục bộ.
+- **2026-10-12** — Khi phát video dài, tạm dừng tinh chỉnh hình thu nhỏ nền và vẽ đúng khung hình tại đầu phát mà không mã hóa JPEG. Tiếp tục phát ưu tiên vị trí tua mới nhất. Âm thanh AAC được trích xuất không mã hóa lại hay sao chép toàn bộ video vào WASM; giữ nguyên hiệu ứng và cài đặt xuất. Xuất video ưu tiên bộ mã hóa phần cứng được hỗ trợ và ghép trực tiếp các khung hình đủ điều kiện ở kích thước gốc; biến đổi và hiệu ứng giữ nguyên cách kết xuất hiện có. Mã hóa âm thanh và ghép khung hình tiếp theo chạy song song với việc gửi khung hình video, với hàng đợi có giới hạn. Khi kéo đầu phát, bộ giải mã và giao diện cập nhật độc lập, vẫn giữ tính năng bám dấu mốc và vị trí thả chính xác.
+- **2026-10-07** — Clip hình ảnh hỗ trợ thời lượng tối thiểu 0,05 giây, khắc phục việc từ chối cắt đoạn mở đầu ngắn như tại 0,45 giây. Cắt mép, đổi tốc độ và khôi phục dự án dùng chung giới hạn này. Sửa lỗi video đứng hình khi mở hoặc đóng bản xem trước lớn bằng cách khôi phục thời gian nguồn, trạng thái phát và cập nhật từng khung hình cho phần tử video mới.
 Xem [Roadmap](ROADMAP.md) cho công việc dự kiến, [Releases](https://github.com/MartinDelophy/ai-video-editor/releases) cho thay đổi đã phát hành và [Issues](https://github.com/MartinDelophy/ai-video-editor/issues) cho nhiệm vụ và lỗi.
 
 ## Có thể tạo ra những gì?

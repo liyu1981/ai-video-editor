@@ -1,3 +1,5 @@
+import { requestLatestVideoFrame } from "../lib/videoFrameSync.js";
+import { useRelightCompare } from "../lib/videoRelighting.js";
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import {
@@ -33,7 +35,7 @@ import { getVectorDesignAppearance, getVectorRenderSource } from "../lib/vectorD
 import { hasSubjectEffect, normalizeSubjectEffect } from "../lib/subjectEffects.js";
 import { normalizeClickRippleEffect, resolveClickRippleState } from "../lib/clickRippleEffect.js";
 import { SubjectMaterialFilterDefs } from "./SubjectMaterialFilter.jsx";
-import { drawCinematicDepthFrame, normalizeCinematicDepth } from "../lib/depthOfField.js";
+import { loadPreviewDepthFrame, drawCinematicDepthFrame, normalizeCinematicDepth } from "../lib/depthOfField.js";
 import { drawPhotoParallaxFrame, normalizePhotoParallax } from "../lib/photoParallax.js";
 import { composeColorGradeFilter, resolveColorGrade } from "../lib/colorGrade.js";
 
@@ -71,12 +73,14 @@ function VisualOverlayMedia({ overlay, src, style, isPlaying, localTime }) {
   const videoRef = useRef(null);
   const imageRef = useRef(null);
   const canvasRef = useRef(null);
-  const depthEffect = useMemo(() => normalizeCinematicDepth(overlay.cinematicDepth), [overlay.cinematicDepth]);
+  const comparing = useRelightCompare(overlay.id);
+  const depthEffect = useMemo(() => normalizeCinematicDepth({ ...overlay.cinematicDepth, enabled: comparing && overlay.cinematicDepth?.output === "relight" ? false : overlay.cinematicDepth?.enabled }), [overlay.cinematicDepth, comparing]);
   const parallaxEffect = useMemo(() => normalizePhotoParallax(overlay.photoParallax), [overlay.photoParallax]);
   const depthUrl = overlay.depthAnalysis?.depthUrl || "";
   const depthActive = depthEffect.enabled && Boolean(depthUrl);
   const parallaxActive = overlay.type === "image" && parallaxEffect.enabled && Boolean(depthUrl);
   const depthRenderActive = parallaxActive || depthActive;
+  const [decodedFrameRevision, setDecodedFrameRevision] = useState(0);
   useEffect(() => {
     const video = videoRef.current;
     if (!video || overlay.type !== "video") return;
@@ -86,7 +90,7 @@ function VisualOverlayMedia({ overlay, src, style, isPlaying, localTime }) {
       if (Number.isFinite(video.duration) && Math.abs(video.currentTime - sourceTime) > (isPlaying ? 0.12 : 0.001)) {
         video.currentTime = Math.min(sourceTime, Math.max(0, video.duration - 0.01));
       }
-      setTimelineAudioGain(video, overlay.volume ?? 1);
+      setTimelineAudioGain(video, overlay.volume ?? 1, overlay.spatialEffect, overlay.spatialAmount);
       if (isPlaying) requestTimelineMediaPlay(video);
       else video.pause();
     };
@@ -97,25 +101,26 @@ function VisualOverlayMedia({ overlay, src, style, isPlaying, localTime }) {
   useEffect(() => {
     if (!depthRenderActive || !canvasRef.current) return undefined;
     let canceled = false;
-    const depthImage = new Image();
-    depthImage.onload = () => {
+    loadPreviewDepthFrame({ depthUrl, nextDepthUrl: overlay.depthAnalysis?.nextDepthUrl, depthMix: overlay.depthAnalysis?.depthMix }).then((depthFrame) => {
+      const depthImage = depthFrame.depthVisual;
       if (canceled) return;
       const canvas = canvasRef.current;
       const source = overlay.type === "video" ? videoRef.current : imageRef.current;
-      if (!canvas || !source) return;
+      if (!canvas || !source || source.seeking) return;
       const rect = canvas.getBoundingClientRect();
-      canvas.width = Math.max(2, Math.round(rect.width * Math.max(1, window.devicePixelRatio || 1)));
-      canvas.height = Math.max(2, Math.round(rect.height * Math.max(1, window.devicePixelRatio || 1)));
+      const width = Math.max(2, Math.round(rect.width * Math.max(1, window.devicePixelRatio || 1)));
+      const height = Math.max(2, Math.round(rect.height * Math.max(1, window.devicePixelRatio || 1)));
+      if (canvas.width !== width) canvas.width = width;
+      if (canvas.height !== height) canvas.height = height;
       const context = canvas.getContext("2d", { alpha: true });
-      if (parallaxActive) drawPhotoParallaxFrame(context, source, canvas, { effect: parallaxEffect, depthVisual: depthImage, fitMode: "contain", filter: style?.filter, time: localTime });
-      else drawCinematicDepthFrame(context, source, canvas, { effect: depthEffect, depthVisual: depthImage, fitMode: "contain", filter: style?.filter });
-    };
-    depthImage.src = depthUrl;
+      if (parallaxActive && !(depthEffect.enabled && depthEffect.output !== "cinematic")) drawPhotoParallaxFrame(context, source, canvas, { effect: parallaxEffect, depthVisual: depthImage, fitMode: "contain", filter: style?.filter, time: localTime });
+      else drawCinematicDepthFrame(context, source, canvas, { effect: depthEffect, ...depthFrame, depthVisual: depthImage, fitMode: "contain", filter: style?.filter });
+    }).catch(() => {});
     return () => { canceled = true; };
-  }, [depthEffect, depthRenderActive, depthUrl, localTime, overlay.type, parallaxActive, parallaxEffect, style?.filter]);
+  }, [depthEffect, depthRenderActive, depthUrl, overlay.depthAnalysis?.nextDepthUrl, overlay.depthAnalysis?.depthMix, localTime, overlay.type, parallaxActive, parallaxEffect, style?.filter, decodedFrameRevision]);
   return <>
     {overlay.type === "video"
-      ? <video ref={videoRef} src={src} crossOrigin="anonymous" muted={overlay.muted === true} playsInline preload="metadata" style={{ ...style, opacity: depthRenderActive ? 0 : style?.opacity }} />
+      ? <video ref={videoRef} onSeeked={() => setDecodedFrameRevision((revision) => revision + 1)} onLoadedData={() => setDecodedFrameRevision((revision) => revision + 1)} src={src} crossOrigin="anonymous" muted={overlay.muted === true} playsInline preload="metadata" style={{ ...style, opacity: depthRenderActive ? 0 : style?.opacity }} />
       : <img ref={imageRef} src={src} alt="" crossOrigin="anonymous" draggable={false} style={{ ...style, opacity: depthRenderActive ? 0 : style?.opacity }} />}
     {depthRenderActive ? <canvas ref={canvasRef} className="cinematic-depth-preview-canvas photo-parallax-preview-canvas" /> : null}
   </>;
@@ -128,6 +133,7 @@ export function PreviewStage({
   previewVideoRef,
   onPreviewVideoTimeUpdate,
   previewVisualSrc,
+  previewVisualSegment,
   previewVisualRenderSrc,
   previewVisionMaskUrl = "",
   previewVisualType,
@@ -202,6 +208,9 @@ export function PreviewStage({
   const smartBackgroundVideoRef = useRef(null);
   const depthCanvasRef = useRef(null);
   const lastReportedVideoTimeRef = useRef(-Infinity);
+  const latestPlaybackRef = useRef({ isPlaying, trackVisibility });
+  latestPlaybackRef.current = { isPlaying, trackVisibility };
+  const [decodedFrameRevision, setDecodedFrameRevision] = useState(0);
   const [isFocusPreviewOpen, setIsFocusPreviewOpen] = useState(false);
   const [focusPreviewFrameSize, setFocusPreviewFrameSize] = useState({ width: 0, height: 0 });
   const [previewRatioWidth, previewRatioHeight] = String(previewRatio).split("/").map((value) => Number(value.trim()));
@@ -236,7 +245,8 @@ export function PreviewStage({
     [resolvedColorGrade, selectedFilter.css],
   );
   const normalizedSubjectEffect = normalizeSubjectEffect(subjectEffect);
-  const normalizedCinematicDepth = useMemo(() => normalizeCinematicDepth(cinematicDepth), [cinematicDepth]);
+  const comparing = useRelightCompare(visualEffects?.id);
+  const normalizedCinematicDepth = useMemo(() => normalizeCinematicDepth({ ...cinematicDepth, enabled: comparing && cinematicDepth?.output === "relight" ? false : cinematicDepth?.enabled }), [cinematicDepth, comparing]);
   const cinematicDepthActive = normalizedCinematicDepth.enabled && Boolean(depthAnalysis?.depthUrl);
   const normalizedPhotoParallax = useMemo(() => normalizePhotoParallax(photoParallax), [photoParallax]);
   const photoParallaxActive = previewVisualType === "image" && normalizedPhotoParallax.enabled && Boolean(depthAnalysis?.depthUrl);
@@ -318,16 +328,18 @@ export function PreviewStage({
   useEffect(() => {
     if (!depthRenderActive || !depthCanvasRef.current) return undefined;
     let canceled = false;
-    const depthImage = new Image();
-    depthImage.onload = () => {
+    loadPreviewDepthFrame({ depthUrl: depthAnalysis?.depthUrl, nextDepthUrl: depthAnalysis?.nextDepthUrl, depthMix: depthAnalysis?.depthMix }).then((depthFrame) => {
+      const depthImage = depthFrame.depthVisual;
       if (canceled) return;
       const canvas = depthCanvasRef.current;
       const source = previewVisualType === "video" ? previewVideoRef.current : previewImageRef.current;
-      if (!canvas || !source) return;
-      canvas.width = Math.max(2, Math.round(frameWidth * previewPixelRatio));
-      canvas.height = Math.max(2, Math.round(frameHeight * previewPixelRatio));
+      if (!canvas || !source || source.seeking) return;
+      const width = Math.max(2, Math.round(frameWidth * previewPixelRatio));
+      const height = Math.max(2, Math.round(frameHeight * previewPixelRatio));
+      if (canvas.width !== width) canvas.width = width;
+      if (canvas.height !== height) canvas.height = height;
       const context = canvas.getContext("2d", { alpha: true });
-      if (photoParallaxActive) drawPhotoParallaxFrame(context, source, canvas, {
+      if (photoParallaxActive && !(normalizedCinematicDepth.enabled && normalizedCinematicDepth.output !== "cinematic")) drawPhotoParallaxFrame(context, source, canvas, {
         effect: normalizedPhotoParallax,
         depthVisual: depthImage,
         fitMode: activeObjectFit,
@@ -336,14 +348,14 @@ export function PreviewStage({
       });
       else drawCinematicDepthFrame(context, source, canvas, {
         effect: normalizedCinematicDepth,
+        ...depthFrame,
         depthVisual: depthImage,
         fitMode: activeObjectFit,
         filter: selectedFilterCss,
       });
-    };
-    depthImage.src = depthAnalysis.depthUrl;
+    }).catch(() => {});
     return () => { canceled = true; };
-  }, [activeObjectFit, depthAnalysis?.depthUrl, depthRenderActive, frameHeight, frameWidth, normalizedCinematicDepth, normalizedPhotoParallax, photoParallaxActive, previewPixelRatio, previewVideoRef, previewVisualType, selectedFilterCss, visualLocalTime]);
+  }, [activeObjectFit, depthAnalysis?.depthUrl, depthAnalysis?.nextDepthUrl, depthAnalysis?.depthMix, depthRenderActive, frameHeight, frameWidth, normalizedCinematicDepth, normalizedPhotoParallax, photoParallaxActive, previewPixelRatio, previewVideoRef, previewVisualType, selectedFilterCss, visualLocalTime, decodedFrameRevision]);
   const startMaskEdit = (event, mode) => {
     const frame = previewCanvasRef.current;
     if (!frame || !onUpdateVisualMask) return;
@@ -541,7 +553,8 @@ export function PreviewStage({
     let callbackId = 0;
     const handleVideoFrame = (_now, metadata) => {
       const mediaTime = Number.isFinite(metadata?.mediaTime) ? metadata.mediaTime : video.currentTime;
-      if (Math.abs(mediaTime - lastReportedVideoTimeRef.current) >= 1 / 12) {
+      if (!video.__timelineFramePending && !video.seeking && Math.abs(mediaTime - lastReportedVideoTimeRef.current) >= 1 / 12) {
+        setDecodedFrameRevision((revision) => revision + 1);
         lastReportedVideoTimeRef.current = mediaTime;
         onPreviewVideoTimeUpdate?.(mediaTime);
       }
@@ -554,6 +567,7 @@ export function PreviewStage({
     previewVideoRef,
     previewVisualSrc,
     previewVisualType,
+    isFocusPreviewOpen,
   ]);
 
   useEffect(() => {
@@ -733,15 +747,48 @@ export function PreviewStage({
                   crossOrigin="anonymous"
                   muted={previewVisualMuted}
                   playsInline
-                  preload="metadata"
+                  preload="auto"
+                  onLoadedMetadata={(event) => {
+                    // Entering/leaving the focus portal mounts a new media element.
+                    // Restore its source clock and playback even when src/isPlaying
+                    // have not changed, so parent synchronization effects stay valid.
+                    const video = event.currentTarget;
+                    const sourceTime = getVisualSourceTime(previewVisualSegment, visualLocalTime);
+                    const maxTime = Number.isFinite(video.duration)
+                      ? Math.max(0, video.duration - 0.001) : sourceTime;
+                    video.__timelineFramePending = true;
+                    video.pause();
+                    video.playbackRate = getVisualPlaybackRateAtTime(previewVisualSegment, visualLocalTime);
+                    if ("preservesPitch" in video) video.preservesPitch = true;
+                    setTimelineAudioGain(video, previewVisualSegment?.volume ?? 1, previewVisualSegment?.spatialEffect, previewVisualSegment?.spatialAmount);
+                    syncSmartBackgroundVideo(video);
+                    requestLatestVideoFrame(video, Math.max(0, Math.min(sourceTime, maxTime)), {
+                      immediate: true,
+                      onPresented: mediaTime => {
+                        if (previewVideoRef.current !== video) return;
+                        video.__timelineFramePending = false;
+                        onPreviewVideoTimeUpdate?.(mediaTime);
+                        if (latestPlaybackRef.current.isPlaying && latestPlaybackRef.current.trackVisibility.image !== false) requestTimelineMediaPlay(video);
+                      },
+                    });
+                  }}
                   onTimeUpdate={(event) => {
                     syncSmartBackgroundVideo(event.currentTarget);
-                    onPreviewVideoTimeUpdate?.(event.currentTarget.currentTime);
+                    if (!event.currentTarget.seeking && !event.currentTarget.__timelineFramePending) onPreviewVideoTimeUpdate?.(event.currentTarget.currentTime);
                   }}
                   onSeeked={(event) => {
+                    setDecodedFrameRevision((revision) => revision + 1);
                     syncSmartBackgroundVideo(event.currentTarget);
-                    lastReportedVideoTimeRef.current = event.currentTarget.currentTime;
-                    onPreviewVideoTimeUpdate?.(event.currentTarget.currentTime);
+                    // Native seek completion is sufficient to resume decoding,
+                    // including low-frame-rate sources whose causal PTS can be
+                    // farther from the requested clock. PTS publication still
+                    // comes from the frame observer while entering a clip.
+                    if (!event.currentTarget.__timelineFramePending) {
+                      lastReportedVideoTimeRef.current = event.currentTarget.currentTime;
+                      onPreviewVideoTimeUpdate?.(event.currentTarget.currentTime);
+                    }
+                    event.currentTarget.__timelineFramePending = false;
+                    if (latestPlaybackRef.current.isPlaying && latestPlaybackRef.current.trackVisibility.image !== false) requestTimelineMediaPlay(event.currentTarget);
                   }}
                   style={{
                     ...visualTransformStyle, opacity: depthRenderActive ? 0 : visualTransformStyle.opacity, filter: selectedFilterCss, objectFit: activeObjectFit, objectPosition: activeObjectPosition, background: smartContainActive ? "transparent" : undefined,

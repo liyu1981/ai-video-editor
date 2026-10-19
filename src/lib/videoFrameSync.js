@@ -6,7 +6,7 @@ function getSeekState(video) {
   let state = videoSeekStates.get(video);
   if (!state) {
     state = { version: 0, pending: null, active: null, frameRequest: 0,
-      videoFrameRequest: 0, fallbackFrame: 0, seeked: null, reset: null };
+      videoFrameRequest: 0, fallbackFrame: 0, seeked: null, reset: null, presentedTime: null };
     videoSeekStates.set(video, state);
   }
   return state;
@@ -48,9 +48,10 @@ function applyLatestSeek(video, state) {
   const finish = (mediaTime) => {
     if (state.version !== version || finished) return;
     finished = true;
+    state.presentedTime = mediaTime;
     clearObservation(video, state);
     state.active = null;
-    try { request.onPresented?.(mediaTime); }
+    try { if (!state.pending) request.onPresented?.(mediaTime); }
     finally { scheduleLatestSeek(video, state); }
   };
   const watchFrame = () => {
@@ -60,12 +61,24 @@ function applyLatestSeek(video, state) {
       // Some decoders submit the target frame before clearing `seeking`.
       // Retain its actual PTS instead of requiring an additional paused frame.
       if (Number.isFinite(metadata?.mediaTime)) earlyMediaTime = metadata.mediaTime;
-      if (video.seeking || earlyMediaTime === null) { watchFrame(); return; }
+      const offset = earlyMediaTime === null ? Infinity : request.targetTime - earlyMediaTime;
+      if (video.seeking || offset < -EARLY_PRESENTED_FRAME_TOLERANCE || offset > EARLY_PRESENTED_FRAME_TOLERANCE) { watchFrame(); return; }
       finish(earlyMediaTime);
     });
   };
   const onSeeked = () => {
     if (state.version !== version || finished) return;
+    // A completed native seek has freed the decoder. During scrubbing there
+    // is no reason to spend two compositor frames observing an obsolete
+    // target before starting the latest one. Do not interrupt an active
+    // decode on every pointer move: that can starve long-GOP sources entirely.
+    if (!video.seeking && video.readyState >= 2 && state.pending) {
+      finished = true;
+      clearObservation(video, state);
+      state.active = null;
+      applyLatestSeek(video, state);
+      return;
+    }
     // Decoder completion and compositor confirmation are separate signals.
     // Paused/same-frame seeks may never produce another video-frame callback;
     // do not hold subsequent scrub targets behind that optional notification.
@@ -85,6 +98,10 @@ function applyLatestSeek(video, state) {
         state.fallbackFrame = 0;
         if (video.seeking || video.readyState < 2) return;
         if (!hasFrameCallback) { finish(video.currentTime); return; }
+        if (state.presentedTime !== null && Math.abs(state.presentedTime - request.targetTime) <= SEEK_TIME_EPSILON) {
+          finish(state.presentedTime);
+          return;
+        }
         // A superseded seek can still submit an old frame. Only reconcile a
         // nearby causal PTS; for longer/unknown frame intervals keep observing
         // without blocking the next request or inventing the requested time.
@@ -151,6 +168,7 @@ export function cancelLatestVideoFrameRequest(video) {
   const state = video && videoSeekStates.get(video);
   if (!state) return;
   state.version += 1;
+  state.presentedTime = null;
   if (state.frameRequest) window.cancelAnimationFrame(state.frameRequest);
   clearObservation(video, state);
   state.frameRequest = 0;

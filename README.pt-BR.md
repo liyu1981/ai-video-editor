@@ -5,6 +5,18 @@
 [![skills.sh](https://skills.sh/b/MartinDelophy/ai-video-editor)](https://skills.sh/MartinDelophy/ai-video-editor)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg?style=flat-square)](CONTRIBUTING.md) [![LINUX DO](https://shorturl.at/ggSqS)](https://linux.do)
 
+## Crie com Anna
+
+A edição Anna combina edição assistida por IA e continuidade dos projetos:
+
+- Descreva sua edição à Anna, revise um plano baseado nas suas instruções e nos metadados da mídia e aplique a ordenação de clipes e os cortes simples de vídeo a 1× compatíveis.
+- Projetos e mídias são salvos automaticamente na nuvem da Anna e podem ser retomados com a mesma conta em outro navegador. Você também pode salvar pontos de recuperação locais.
+- Refine a linha do tempo multifaixa editável, adicione vozes de IA e legendas manuais e exporte MP4 com um codificador disponível no navegador.
+
+Esta versão de prévia é para desktop. O planejamento não analisa quadros de vídeo nem áudio; os recursos de IA local dependem do contêiner da Anna.
+
+→ [Experimente o Timeline Studio na Anna](https://anna.partners/store/@martindelophy/timeline-studio)
+
 ## Uso responsável de síntese profunda
 
 Esta ferramenta utiliza tecnologia de síntese profunda e destina-se exclusivamente à pesquisa técnica e ao aprendizado.
@@ -19,12 +31,11 @@ O usuário é o único responsável por quaisquer consequências legais decorren
 
 ## Novidades do projeto
 
-- **2026-09-27** — Legendas automáticas usam tempos por palavra e divisão em frases curtas ou palavra por palavra, evitando blocos longos em vídeos verticais. Prévia, exportação e SRT usam os mesmos clipes editáveis; controles em 13 idiomas. A voz IA também divide textos longos antes da síntese e ajusta cada legenda ao próprio áudio, inclusive ao gerar voz para a legenda selecionada. A exibição e o SRT ocultam vírgulas, pontos e pontos e vírgulas finais, preservando sinais expressivos e o texto original para edição e voz.
-- **2026-09-27** — Na reprodução no desktop, a linha do tempo avança ao atingir 85%, reposicionando o cursor em 20%. Rolagem horizontal manual suspende o acompanhamento; voltar ao cursor ou reiniciar a reprodução o restaura. A pausa mantém a visualização.
-- **2026-09-27** — Clipes de vídeo unificados: vídeo principal e picture-in-picture reúnem nome, miniaturas e forma de onda do áudio original. Ajuste os dB por clipe na onda, com ganho consistente na prévia e exportação, preservado ao separar o áudio. Interface em 13 idiomas. Todas as faixas de áudio exibem ondas finas alinhadas à base que acompanham o ganho, com picos laranja acima do limite visual e o estilo existente preservado. Ao arrastar o cursor de reprodução, a prévia avança sem aguardar a confirmação de apresentação; ao soltar, o quadro exato continua sendo verificado.
-- **2026-09-21 — Remover pausas:** Smart detecta pausas longas localmente com Silero VAD. Revise e selecione cortes no vídeo principal e seu áudio, ajuste o limite e o intervalo mantido, use edição ripple, cancele ou desfaça. Interface disponível em 13 idiomas.
-- **2026-09-20 — Encaixe do cursor nos marcadores:** Arrastar o cursor branco exibe a imagem em tempo real e encaixa nos marcadores e limites de intervalos, com guia de alinhamento e tempo. Segure Alt para mover livremente. Os detalhes mostram Concluído antes da edição e Aplicar alterações depois.
-
+- **2026-10-17** — Corrigidos os vínculos de legendas, áudio e adesivos ao mover entre clipes, com exclusão e movimento sincronizados; evitados saltos ao selecionar legendas e simplificado o resumo de áudio. Cada legenda permite destacar texto selecionado, escolher a cor e limpar o destaque.
+- **2026-10-17** — Processamento local de áudio com RNNoise, DeepFilterNet3, equalização, compressão, ganho e limitador; prévia, aplicação e restauração do original. Melhorias no painel de áudio original, alinhamento e destaque de legendas, fontes multilíngues, edição vinculada e reprodução entre clipes.
+- **2026-10-13** — A análise de iluminação e a conversão de profundidade reutilizam o fluxo do navegador com preparação, início, consulta e cancelamento pelo WebMCP. Parâmetros de luz usam comandos compartilhados revisáveis e reversíveis; vídeos do agente ficam em Meus recursos até uma inserção revisada separadamente. O Skill documenta o fluxo e os limites da CLI local.
+- **2026-10-12** — A reprodução de vídeos longos pausa o refinamento de miniaturas e desenha o quadro exato sob o cursor sem codificar JPEG. Ao retomar, prioriza a última busca. O áudio AAC é extraído sem recodificar nem copiar todo o vídeo para WASM; efeitos e configurações de exportação são preservados. A exportação prioriza codificadores de hardware compatíveis e compõe diretamente quadros elegíveis no tamanho original; transformações e efeitos mantêm a renderização existente. A codificação de áudio e a composição do próximo quadro avançam em paralelo ao envio de vídeo, com fila limitada. O arraste separa o decodificador e a interface, preservando o encaixe nos marcadores e a posição final exata.
+- **2026-10-07** — Clipes visuais agora aceitam duração mínima de 0,05 segundo, corrigindo cortes recusados em introduções curtas, como em 0,45 segundo. Recorte, alterações de velocidade e recuperação usam o mesmo limite. Corrigido o congelamento ao abrir ou fechar a prévia ampliada: o novo elemento de vídeo recupera o tempo de origem, a reprodução e os callbacks de quadros.
 Consulte o [Roadmap](ROADMAP.md) para o trabalho planejado, [Releases](https://github.com/MartinDelophy/ai-video-editor/releases) para mudanças publicadas e [Issues](https://github.com/MartinDelophy/ai-video-editor/issues) para tarefas e erros.
 
 ## O que ele pode produzir?

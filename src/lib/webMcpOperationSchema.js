@@ -1,3 +1,4 @@
+import { RELIGHT_PROPERTY_SCHEMA } from "./relightCommand.js";
 import { MAX_TIMELINE_DURATION_SECONDS, MIN_VISUAL_SEGMENT_SECONDS } from "../config/editor.js";
 import { MAX_TIMELINE_MARKER_SECONDS, TIMELINE_MARKER_COLORS, TIMELINE_MARKER_TYPES } from "./timelineMarkers.js";
 import { CAPTION_STYLE_PROPERTY_SCHEMA } from "./projectCommandEngine.js";
@@ -40,7 +41,7 @@ const operation = (type, properties, required) => ({
 // media, filesystem paths, URLs, reducer payloads, or arbitrary JavaScript.
 export const WEB_MCP_OPERATION_SCHEMA = {
   oneOf: [
-    operation("caption.add", { clipId: id, text: { type: "string", maxLength: 20000 }, start: time, end: time, audioClipId: id }, ["clipId", "text", "start", "end"]),
+    operation("caption.add", { clipId: id, text: { type: "string", maxLength: 20000 }, start: time, end: time, audioClipId: id, visualClipId: id }, ["clipId", "text", "start", "end"]),
     operation("caption.update", { clipId: id, text: { type: "string", maxLength: 20000 }, start: time, end: time }, ["clipId"]),
     operation("caption.delete", { clipId: id }, ["clipId"]),
     {
@@ -65,6 +66,7 @@ export const WEB_MCP_OPERATION_SCHEMA = {
       ...operation("clip.set_property", { clipId: id, property: { type: "string", enum: ["volume", "fadeIn", "fadeOut"] }, value: { type: "number", minimum: 0, maximum: 1800 } }, ["clipId", "property", "value"]),
       allOf: [{ if: { properties: { property: { const: "volume" } } }, then: { properties: { value: { maximum: 4 } } } }],
     },
+    operation("clip.set_relight", { clipId: id, enabled: { type: "boolean" }, quality: { type: "string", enum: ["fast", "balanced", "quality"] }, light: { type: "object", additionalProperties: false, minProperties: 1, properties: RELIGHT_PROPERTY_SCHEMA } }, ["clipId"]),
     operation("clip.set_muted", { clipId: id, muted }, ["clipId", "muted"]),
     operation("marker.add", marker, ["markerId", "time"]),
     operation("marker.update", marker, ["markerId"]),
@@ -83,7 +85,7 @@ export const WEB_MCP_OPERATION_SCHEMA = {
       oneOf: [{ required: ["sourceClipId"] }, { required: ["assetId"] }],
     },
     {
-      ...operation("asset.insert", { assetId: id, clipId: id, track: { type: "string", enum: ["visuals", "overlays", "audio", "music"] }, atIndex: index, start: time, duration, layer, muted, transform }, ["assetId", "clipId", "track"]),
+      ...operation("asset.insert", { visualClipId: id, assetId: id, clipId: id, track: { type: "string", enum: ["visuals", "overlays", "audio", "music"] }, atIndex: index, start: time, duration, layer, muted, transform }, ["assetId", "clipId", "track"]),
       allOf: [{ if: { properties: { track: { const: "visuals" } } }, then: { required: ["atIndex"] }, else: { required: ["start"] } }],
     },
   ],

@@ -1,9 +1,156 @@
+import { RELIGHTING_COPY } from "./lib/relightingCopy.js";
+const DEPTH_MAP_COPY = {
+  "zh": {
+    "depthMapPipeline": "正在分析深度并进行 RIFE 插帧",
+    "depthMapInterpolating": "正在使用 RIFE 插帧至 24 fps",
+    "depthMapExportFailed": "深度视频生成失败，已保留分析结果，请重试。",
+    "depthMapTitle": "深度图",
+    "depthMapDescription": "将视频转为灰度深度图：近处亮、远处暗。",
+    "depthMapEnable": "启用深度图",
+    "depthMapInvert": "反转远近明暗",
+    "depthMapEncoding": "正在生成深度图视频",
+    "depthMapAssetReady": "深度图视频已保存到我的素材"
+  },
+  "en": {
+    "depthMapPipeline": "Analyzing depth and interpolating with RIFE",
+    "depthMapInterpolating": "Interpolating to 24 fps with RIFE",
+    "depthMapExportFailed": "Depth video generation failed. Analysis is retained; please retry.",
+    "depthMapTitle": "Depth map",
+    "depthMapDescription": "Turn video into grayscale depth: near is bright, far is dark.",
+    "depthMapEnable": "Enable depth map",
+    "depthMapInvert": "Invert near/far brightness",
+    "depthMapEncoding": "Generating depth-map video",
+    "depthMapAssetReady": "Depth-map video saved to My assets"
+  },
+  "ja": {
+    "depthMapPipeline": "深度解析と RIFE 補間を実行中",
+    "depthMapInterpolating": "RIFE で 24 fps に補間中",
+    "depthMapExportFailed": "深度動画の生成に失敗しました。解析結果を保持しました。再試行してください。",
+    "depthMapTitle": "深度マップ",
+    "depthMapDescription": "動画をグレースケール深度に変換。近くは明るく、遠くは暗く。",
+    "depthMapEnable": "深度マップを有効化",
+    "depthMapInvert": "遠近の明暗を反転",
+    "depthMapEncoding": "深度マップ動画を生成中",
+    "depthMapAssetReady": "深度マップ動画をマイ素材に保存しました"
+  },
+  "ko": {
+    "depthMapPipeline": "깊이 분석 및 RIFE 보간 중",
+    "depthMapInterpolating": "RIFE로 24 fps 보간 중",
+    "depthMapExportFailed": "깊이 영상 생성에 실패했습니다. 분석 결과는 보존됩니다. 다시 시도하세요.",
+    "depthMapTitle": "깊이 맵",
+    "depthMapDescription": "영상을 회색조 깊이로 변환합니다. 가까우면 밝고 멀면 어둡습니다.",
+    "depthMapEnable": "깊이 맵 활성화",
+    "depthMapInvert": "원근 밝기 반전",
+    "depthMapEncoding": "깊이 맵 영상 생성 중",
+    "depthMapAssetReady": "깊이 맵 영상을 내 에셋에 저장했습니다"
+  },
+  "es": {
+    "depthMapPipeline": "Analizando profundidad e interpolando con RIFE",
+    "depthMapInterpolating": "Interpolando a 24 fps con RIFE",
+    "depthMapExportFailed": "No se pudo generar el vídeo de profundidad. El análisis se conserva; vuelve a intentarlo.",
+    "depthMapTitle": "Mapa de profundidad",
+    "depthMapDescription": "Convierte vídeo a profundidad en gris: cerca claro, lejos oscuro.",
+    "depthMapEnable": "Activar mapa de profundidad",
+    "depthMapInvert": "Invertir brillo de cerca y lejos",
+    "depthMapEncoding": "Generando vídeo de profundidad",
+    "depthMapAssetReady": "Vídeo de profundidad guardado en Mis recursos"
+  },
+  "fr": {
+    "depthMapPipeline": "Analyse de profondeur et interpolation RIFE",
+    "depthMapInterpolating": "Interpolation à 24 fps avec RIFE",
+    "depthMapExportFailed": "La génération de la vidéo de profondeur a échoué. L’analyse est conservée ; réessayez.",
+    "depthMapTitle": "Carte de profondeur",
+    "depthMapDescription": "Vidéo en profondeur en gris : proche clair, lointain sombre.",
+    "depthMapEnable": "Activer la carte de profondeur",
+    "depthMapInvert": "Inverser la luminosité proche/lointain",
+    "depthMapEncoding": "Création de la vidéo de profondeur",
+    "depthMapAssetReady": "Vidéo de profondeur enregistrée dans Mes ressources"
+  },
+  "de": {
+    "depthMapPipeline": "Tiefenanalyse und RIFE-Interpolation",
+    "depthMapInterpolating": "Interpolation auf 24 fps mit RIFE",
+    "depthMapExportFailed": "Das Tiefenvideo konnte nicht erstellt werden. Die Analyse bleibt erhalten; bitte erneut versuchen.",
+    "depthMapTitle": "Tiefenkarte",
+    "depthMapDescription": "Video als Graustufen-Tiefe: nah hell, fern dunkel.",
+    "depthMapEnable": "Tiefenkarte aktivieren",
+    "depthMapInvert": "Helligkeit für nah/fern umkehren",
+    "depthMapEncoding": "Tiefenkartenvideo wird erstellt",
+    "depthMapAssetReady": "Tiefenkartenvideo in Meine Medien gespeichert"
+  },
+  "pt": {
+    "depthMapPipeline": "Analisando profundidade e interpolando com RIFE",
+    "depthMapInterpolating": "Interpolando para 24 fps com RIFE",
+    "depthMapExportFailed": "Falha ao gerar o vídeo de profundidade. A análise foi preservada; tente novamente.",
+    "depthMapTitle": "Mapa de profundidade",
+    "depthMapDescription": "Vídeo em profundidade cinza: perto claro, longe escuro.",
+    "depthMapEnable": "Ativar mapa de profundidade",
+    "depthMapInvert": "Inverter brilho perto/longe",
+    "depthMapEncoding": "Gerando vídeo de profundidade",
+    "depthMapAssetReady": "Vídeo de profundidade salvo em Meus recursos"
+  },
+  "th": {
+    "depthMapPipeline": "กำลังวิเคราะห์ความลึกและเพิ่มเฟรมด้วย RIFE",
+    "depthMapInterpolating": "กำลังเพิ่มเฟรมเป็น 24 fps ด้วย RIFE",
+    "depthMapExportFailed": "สร้างวิดีโอความลึกไม่สำเร็จ เก็บผลวิเคราะห์ไว้แล้ว โปรดลองอีกครั้ง",
+    "depthMapTitle": "แผนที่ความลึก",
+    "depthMapDescription": "แปลงวิดีโอเป็นความลึกสีเทา: ใกล้สว่าง ไกลมืด",
+    "depthMapEnable": "เปิดแผนที่ความลึก",
+    "depthMapInvert": "กลับความสว่างใกล้/ไกล",
+    "depthMapEncoding": "กำลังสร้างวิดีโอแผนที่ความลึก",
+    "depthMapAssetReady": "บันทึกวิดีโอแผนที่ความลึกในสื่อของฉันแล้ว"
+  },
+  "vi": {
+    "depthMapPipeline": "Đang phân tích độ sâu và nội suy bằng RIFE",
+    "depthMapInterpolating": "Đang nội suy lên 24 fps bằng RIFE",
+    "depthMapExportFailed": "Tạo video độ sâu thất bại. Kết quả phân tích được giữ lại; hãy thử lại.",
+    "depthMapTitle": "Bản đồ độ sâu",
+    "depthMapDescription": "Chuyển video thành độ sâu xám: gần sáng, xa tối.",
+    "depthMapEnable": "Bật bản đồ độ sâu",
+    "depthMapInvert": "Đảo độ sáng gần/xa",
+    "depthMapEncoding": "Đang tạo video bản đồ độ sâu",
+    "depthMapAssetReady": "Đã lưu video độ sâu vào Tài nguyên của tôi"
+  },
+  "ru": {
+    "depthMapPipeline": "Анализ глубины и интерполяция RIFE",
+    "depthMapInterpolating": "Интерполяция до 24 fps с RIFE",
+    "depthMapExportFailed": "Не удалось создать видео глубины. Анализ сохранён; повторите попытку.",
+    "depthMapTitle": "Карта глубины",
+    "depthMapDescription": "Видео в оттенках серого: близкое светлее, далёкое темнее.",
+    "depthMapEnable": "Включить карту глубины",
+    "depthMapInvert": "Инвертировать яркость ближнего/дальнего",
+    "depthMapEncoding": "Создание видео карты глубины",
+    "depthMapAssetReady": "Видео карты глубины сохранено в Моих материалах"
+  },
+  "it": {
+    "depthMapPipeline": "Analisi della profondità e interpolazione RIFE",
+    "depthMapInterpolating": "Interpolazione a 24 fps con RIFE",
+    "depthMapExportFailed": "Generazione del video di profondità non riuscita. Analisi conservata; riprova.",
+    "depthMapTitle": "Mappa di profondità",
+    "depthMapDescription": "Video in profondità grigia: vicino chiaro, lontano scuro.",
+    "depthMapEnable": "Attiva mappa di profondità",
+    "depthMapInvert": "Inverti luminosità vicino/lontano",
+    "depthMapEncoding": "Generazione del video di profondità",
+    "depthMapAssetReady": "Video di profondità salvato in Le mie risorse"
+  },
+  "id": {
+    "depthMapPipeline": "Menganalisis kedalaman dan interpolasi RIFE",
+    "depthMapInterpolating": "Menginterpolasi ke 24 fps dengan RIFE",
+    "depthMapExportFailed": "Pembuatan video kedalaman gagal. Analisis tetap tersimpan; coba lagi.",
+    "depthMapTitle": "Peta kedalaman",
+    "depthMapDescription": "Ubah video menjadi kedalaman abu-abu: dekat terang, jauh gelap.",
+    "depthMapEnable": "Aktifkan peta kedalaman",
+    "depthMapInvert": "Balik kecerahan dekat/jauh",
+    "depthMapEncoding": "Membuat video peta kedalaman",
+    "depthMapAssetReady": "Video peta kedalaman disimpan di Aset saya"
+  }
+};
+
 import { CAPTION_GROUPING_COPY } from "./i18nCaptionGrouping.js";
 import { TIMELINE_GAIN_COPY } from "./i18nTimelineGain.js";
 import { SILENCE_REMOVAL_COPY } from "./i18nSilenceRemoval.js";
 import { I18N_COMPLETION_COPY } from "./i18nCompletion.js";
 import { EFFECTS_LOCALIZED_COPY } from "./i18nEffects.js";
-import { DENOISE_HUB_HINT_COPY, DENOISE_LOCALIZED_COPY, REPAIR_LOCALIZED_COPY } from "./i18nRepair.js";
+import { DENOISE_HUB_HINT_COPY, DENOISE_LOCALIZED_COPY, REPAIR_LOCALIZED_COPY, REPAIR_ITERATION_COPY } from "./i18nRepair.js";
 import { TIMELINE_MARKER_COPY } from "./i18nTimelineMarkers.js";
 import { AUDIO_EXPORT_COPY } from "./i18nAudioExport.js";
 
@@ -3618,7 +3765,7 @@ export function createTranslator(languageId) {
     AUTO_EDIT_RESULT_COPY, IMAGE_AI_CAPTION_COPY, PICTURE_IN_PICTURE_COPY, EFFECTS_WORKSPACE_COPY, VECTOR_STATE_COPY, VECTOR_DOCUMENT_COPY, VECTOR_ADVANCED_COPY,
     SRT_IMPORT_COPY, CLICK_RIPPLE_COPY,
   ].map((source) => ({ ...(source.en ?? {}), ...(source[languageId] ?? {}) })));
-  return (key, fallbackText) => (CAPTION_GROUPING_COPY[languageId] ?? CAPTION_GROUPING_COPY.en)[key] ?? (TIMELINE_GAIN_COPY[languageId] ?? TIMELINE_GAIN_COPY.en)[key] ?? pauseCopy[key] ?? audioExportCopy[key] ?? markerCopy[key] ?? reviewedCopy[key] ?? completionCopy[key] ?? coreLabelCopy[key] ?? repairCopy[key] ?? specializedCopy[key] ?? exportOptionsCopy[key] ?? EXPORT_OPTIONS_COPY.en[key] ?? exportExtraStatusCopy[key] ?? EXPORT_EXTRA_STATUS_COPY.en[key] ?? projectChromeCopy[key] ?? PROJECT_CHROME_COPY.en[key] ?? captionAudioLinkCopy[key] ?? CAPTION_AUDIO_LINK_COPY.en[key] ?? ttsBackendCopy[key] ?? TTS_BACKEND_COPY.en[key] ?? mobileStickerCopy[key] ?? MOBILE_STICKER_COPY.en[key] ?? mobileClipActionCopy[key] ?? MOBILE_CLIP_ACTION_COPY.en[key] ?? mobileDrawerCopy[key] ?? MOBILE_DRAWER_COPY.en[key] ?? srtImportCopy[key] ?? exportCopy[key] ?? EXPORT_RENDER_COPY.en[key] ?? assetPreviewCopy[key] ?? ASSET_PREVIEW_COPY.en[key] ?? assetDropCopy[key] ?? ASSET_DROP_COPY.en[key] ?? autoCaptionStatusCopy[key] ?? AUTO_CAPTION_STATUS_COPY.en[key] ?? copy[key] ?? fallback[key] ?? UI_COPY.zh[key] ?? fallbackText ?? key;
+  return (key, fallbackText) => (RELIGHTING_COPY[languageId] ?? RELIGHTING_COPY.en)[key] ?? (DEPTH_MAP_COPY[languageId] ?? DEPTH_MAP_COPY.en)[key] ?? (REPAIR_ITERATION_COPY[languageId] ?? REPAIR_ITERATION_COPY.en)[key] ?? (CAPTION_GROUPING_COPY[languageId] ?? CAPTION_GROUPING_COPY.en)[key] ?? (TIMELINE_GAIN_COPY[languageId] ?? TIMELINE_GAIN_COPY.en)[key] ?? pauseCopy[key] ?? audioExportCopy[key] ?? markerCopy[key] ?? reviewedCopy[key] ?? completionCopy[key] ?? coreLabelCopy[key] ?? repairCopy[key] ?? specializedCopy[key] ?? exportOptionsCopy[key] ?? EXPORT_OPTIONS_COPY.en[key] ?? exportExtraStatusCopy[key] ?? EXPORT_EXTRA_STATUS_COPY.en[key] ?? projectChromeCopy[key] ?? PROJECT_CHROME_COPY.en[key] ?? captionAudioLinkCopy[key] ?? CAPTION_AUDIO_LINK_COPY.en[key] ?? ttsBackendCopy[key] ?? TTS_BACKEND_COPY.en[key] ?? mobileStickerCopy[key] ?? MOBILE_STICKER_COPY.en[key] ?? mobileClipActionCopy[key] ?? MOBILE_CLIP_ACTION_COPY.en[key] ?? mobileDrawerCopy[key] ?? MOBILE_DRAWER_COPY.en[key] ?? srtImportCopy[key] ?? exportCopy[key] ?? EXPORT_RENDER_COPY.en[key] ?? assetPreviewCopy[key] ?? ASSET_PREVIEW_COPY.en[key] ?? assetDropCopy[key] ?? ASSET_DROP_COPY.en[key] ?? autoCaptionStatusCopy[key] ?? AUTO_CAPTION_STATUS_COPY.en[key] ?? copy[key] ?? fallback[key] ?? UI_COPY.zh[key] ?? fallbackText ?? key;
 }
 
 export function translateOptionName(languageId, name) {

@@ -10,6 +10,18 @@
   <img src="https://toolindex.net/badge/timeline-studio/small.svg?theme=dark" alt="Timeline Studio - Listed on Tool Index" width="130" height="30" />
 </a>
 
+## Create with Anna
+
+Try the Anna edition for AI-assisted editing and project continuity:
+
+- Describe your edit to Anna, review a plan based on your brief and clip metadata, then apply supported clip ordering and simple 1× video trims.
+- Projects and media save automatically to Anna cloud storage and can resume with the same Anna account in another browser. Local project checkpoints provide an additional recovery option.
+- Refine the editable multi-track timeline, add AI voiceovers and manual captions, and export MP4 using an available browser encoder.
+
+This desktop preview plans from metadata, without analyzing video frames or audio; local AI features depend on the Anna container’s capabilities.
+
+→ [Try Timeline Studio on Anna](https://anna.partners/store/@martindelophy/timeline-studio)
+
 ## Responsible use of deep synthesis
 
 This tool uses deep-synthesis technology and is intended solely for technical research and learning.
@@ -24,12 +36,11 @@ Users are solely responsible for any legal liability arising from violations of 
 
 ## Project updates
 
-- **2026-09-27** — Automatic captions now use word timestamps with short-phrase or word-by-word grouping, preventing long subtitle blocks in portrait videos. Preview, export and SRT share the same editable timed clips; controls support all 13 interface languages. AI voice generation also splits long scripts before synthesis and times each caption to its own audio, including caption-scoped voice generation. Caption display and SRT hide trailing commas, periods and semicolons while retaining expressive punctuation and the original editing/voice text.
-- **2026-09-27** — Desktop playback now pages the timeline at the 85% edge, returning the playhead to 20%. Manual horizontal scrolling suspends following; Return to playhead or restarting playback restores it. Pausing preserves the view.
-- **2026-09-27** — Unified video clips: main-video and picture-in-picture clips now combine a filename rail, filmstrip and source-audio waveform. Adjust each clip’s dB directly on its waveform, with matching preview/export gain and gain retained after audio separation. Includes all 13 interface languages. All audio lanes use fine bottom-aligned waveforms that follow gain, with orange caps above the display ceiling and existing track styling preserved. Timeline scrubbing advances the preview without waiting for compositor callbacks; release retains exact-frame confirmation.
-- **2026-09-21 — Remove pauses:** Smart now detects long speech pauses locally with Silero VAD, lets you review and select cuts, and trims the selected main-track video with its source audio. Adjustable pause thresholds, retained gaps, ripple editing, cancellation and undo are included, with direct UI copy in all 13 languages.
-- **2026-09-20 — Playhead marker snapping:** Dragging the white playhead previews the picture live and snaps to markers and range edges, with a shared alignment guide and time readout. Hold Alt to scrub freely. Marker details show Done until edited, then Apply changes.
-
+- **2026-10-17** — Fixed caption, audio and sticker ownership when moving between visual clips, synchronized deletion and movement, prevented caption selection jumps, and simplified the audio overview. Caption text selections can now be highlighted independently per segment, with a dedicated color and clear action.
+- **2026-10-17** — Added browser-local audio processing with RNNoise and DeepFilterNet3, EQ, compression, gain and limiting, preview/apply and original recovery. Improved source-audio inspectors, caption alignment and keyword highlighting, multilingual fonts, linked-track edits and video boundary playback.
+- **2026-10-13** — Agent relighting and depth-video conversion now reuse the production browser pipeline through WebMCP prepare/start/inspect/cancel. Lighting parameters use shared reviewed, undoable commands; generated depth videos stay in My assets until a separate reviewed insertion. The editing Skill documents the complete workflow and local CLI limits.
+- **2026-10-12** — Long-video playback pauses background filmstrip refinement and draws the exact playhead thumbnail without JPEG encoding. Resume prioritizes the latest seek; AAC export preparation copies audio packets without re-encoding or copying the full video into WASM. Visual effects and export settings are preserved. Export now prefers supported hardware encoders and feeds eligible unscaled video frames directly to the compositor, preserving the existing raster path for transforms and effects. Audio encoding and next-frame composition now overlap video submission with a bounded queue. Scrubbing separates decoder/playhead updates from editor reconciliation, preserves marker snapping and commits the exact release position.
+- **2026-10-07** — Visual clips now support cuts down to 0.05 seconds, fixing rejected cuts at valid short intro positions such as 0.45 seconds. Trimming, speed changes and project recovery share the same minimum duration. Fixed frozen video playback when entering or leaving the large canvas preview by restoring source timing, playback and frame callbacks on the new video element.
 See the public [Roadmap](ROADMAP.md) for planned work, [Releases](https://github.com/MartinDelophy/ai-video-editor/releases) for shipped changes, and [Issues](https://github.com/MartinDelophy/ai-video-editor/issues) for focused tasks and bugs.
 
 ## What can it produce?

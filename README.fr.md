@@ -5,6 +5,18 @@
 [![skills.sh](https://skills.sh/b/MartinDelophy/ai-video-editor)](https://skills.sh/MartinDelophy/ai-video-editor)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg?style=flat-square)](CONTRIBUTING.md) [![LINUX DO](https://shorturl.at/ggSqS)](https://linux.do)
 
+## Créez avec Anna
+
+La version Anna associe montage assisté par IA et reprise de vos projets :
+
+- Décrivez votre montage à Anna, examinez un plan fondé sur vos instructions et les métadonnées des médias, puis appliquez les réorganisations de clips et les découpes simples de vidéos à 1× prises en charge.
+- Les projets et leurs médias sont enregistrés automatiquement dans le cloud Anna et peuvent être repris avec le même compte dans un autre navigateur. Des points de récupération locaux sont également disponibles.
+- Affinez le montage dans la timeline multipiste modifiable, ajoutez des voix IA et des sous-titres manuels, puis exportez en MP4 avec un encodeur disponible dans le navigateur.
+
+Cette préversion est destinée aux ordinateurs. La planification n’analyse ni les images ni le son ; les fonctions IA locales dépendent des capacités du conteneur Anna.
+
+→ [Essayer Timeline Studio sur Anna](https://anna.partners/store/@martindelophy/timeline-studio)
+
 ## Utilisation responsable de la synthèse profonde
 
 Cet outil repose sur une technologie de synthèse profonde et est destiné exclusivement à la recherche technique et à l’apprentissage.
@@ -19,12 +31,11 @@ L’utilisateur assume seul toute responsabilité juridique découlant du non-re
 
 ## Actualités du projet
 
-- **2026-09-27** — Les sous-titres automatiques utilisent le minutage des mots, avec découpage en phrases courtes ou mot par mot pour les vidéos verticales. Aperçu, export et SRT partagent les mêmes clips modifiables ; commandes en 13 langues. La voix IA découpe aussi les textes longs avant la synthèse et cale chaque sous-titre sur son audio, y compris pour le sous-titre sélectionné. L’affichage et le SRT masquent les virgules, points et points-virgules finaux, tout en conservant les signes expressifs et le texte original pour l’édition et la voix.
-- **2026-09-27** — La lecture sur ordinateur change de page au seuil de 85%, ramenant la tête à 20%. Le défilement horizontal manuel suspend le suivi ; le retour à la tête ou la reprise de lecture le rétablit. La pause conserve la vue.
-- **2026-09-27** — Clips vidéo unifiés : vidéo principale et incrustations réunissent nom, vignettes et onde audio source. Réglez les dB par clip sur la forme d’onde, avec un gain identique en aperçu et à l’export, conservé après séparation audio. Interface en 13 langues. Toutes les pistes audio affichent une onde fine alignée en bas, suivant le gain, avec des crêtes orange au-delà du plafond visuel et le style existant préservé. Le déplacement de la tête de lecture actualise l’aperçu sans attendre la confirmation d’affichage ; le relâchement conserve la vérification de l’image exacte.
-- **2026-09-21 — Suppression des pauses :** Smart détecte localement les longues pauses avec Silero VAD. Vérifiez et sélectionnez les coupes du clip principal et de son audio, réglez les seuils et intervalles, utilisez le montage ripple, annulez l’analyse ou la modification. Interface en 13 langues.
-- **2026-09-20 — Alignement de la tête de lecture :** Glisser la tête blanche affiche un aperçu en direct et l’aligne sur les marqueurs et les extrémités des plages, avec un guide commun et l’heure. Maintenez Alt pour la déplacer librement. Les détails affichent Terminé avant modification, puis Appliquer les modifications.
-
+- **2026-10-17** — Correction des liens des sous-titres, sons et autocollants déplacés entre plans, avec suppression et déplacement synchronisés ; sélection des sous-titres sans saut et aperçu audio simplifié. Chaque sous-titre permet de surligner une sélection, choisir sa couleur et effacer le surlignage.
+- **2026-10-17** — Traitement audio local avec RNNoise, DeepFilterNet3, égalisation, compression, gain et limiteur ; écoute, application et restauration de l’original. Amélioration du panneau audio source, de l’alignement et du surlignage des sous-titres, des polices multilingues, des pistes liées et des transitions de lecture.
+- **2026-10-13** — L’analyse d’éclairage et la conversion en vidéo de profondeur réutilisent le pipeline du navigateur via préparation, lancement, suivi et annulation WebMCP. Les paramètres de lumière passent par des commandes partagées vérifiables et annulables ; les vidéos de l’Agent restent dans Mes ressources avant une insertion vérifiée séparément. Le Skill décrit le parcours et les limites de la CLI locale.
+- **2026-10-12** — La lecture des vidéos longues suspend le raffinement des vignettes et dessine directement l’image exacte sous la tête de lecture, sans JPEG. La reprise privilégie le dernier déplacement. L’audio AAC est extrait sans réencodage ni copie complète de la vidéo dans WASM ; les effets et réglages d’export sont conservés. L’export privilégie les encodeurs matériels compatibles et compose directement les images à leur taille native lorsque les conditions le permettent ; les transformations et effets conservent le rendu existant. L’encodage audio et la composition de l’image suivante se chevauchent avec l’envoi vidéo, avec une file bornée. Le déplacement sépare le décodeur et l’interface, tout en conservant l’accrochage aux marqueurs et la position finale exacte.
+- **2026-10-07** — La durée minimale des clips visuels passe à 0,05 seconde, corrigeant les coupes refusées dans les introductions courtes, par exemple à 0,45 seconde. Le rognage, les changements de vitesse et la restauration partagent cette limite. Correction du gel vidéo à l’ouverture ou à la fermeture du grand aperçu : le nouvel élément vidéo retrouve le temps source, la lecture et les rappels par image.
 Consultez la [Roadmap](ROADMAP.md) pour les travaux prévus, les [Releases](https://github.com/MartinDelophy/ai-video-editor/releases) pour les changements publiés et les [Issues](https://github.com/MartinDelophy/ai-video-editor/issues) pour les tâches et anomalies.
 
 ## Que peut-il produire ?

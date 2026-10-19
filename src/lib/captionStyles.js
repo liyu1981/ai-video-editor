@@ -1,4 +1,9 @@
 export const CAPTION_VISUAL_STYLE_KEYS = [
+  "textAlign",
+  "highlightWords",
+  "highlightColor",
+  "letterSpacing",
+  "lineGap",
   "fontId",
   "textColor",
   "backgroundColor",

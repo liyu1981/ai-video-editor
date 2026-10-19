@@ -1,3 +1,4 @@
+import { normalizeRelight, renderRelighting } from "./videoRelighting.js";
 export const DEPTH_MODEL_REPOSITORY = "timeline-studio-onnx-models";
 export const DEPTH_MODEL_PATH = "depth-anything-v2-small";
 export const DEPTH_MODEL_HUGGING_FACE_REVISION = "a0806c6fb9484894dcb78df523156d244461515d";
@@ -5,6 +6,8 @@ export const DEPTH_MODEL_MODELSCOPE_REVISION = "4cc757f80330e22cb8f82b628c53ceca
 
 export const DEFAULT_CINEMATIC_DEPTH = Object.freeze({
   enabled: false,
+  output: "cinematic",
+  inverted: false,
   focus: 0.72,
   focusRange: 0.16,
   blur: 18,
@@ -17,12 +20,26 @@ const clamp = (value, minimum, maximum, fallback) => {
   return Number.isFinite(number) ? Math.max(minimum, Math.min(maximum, number)) : fallback;
 };
 
+// Output styling does not affect inference. Include all source-time mapping and
+// quality inputs so cached depth never survives a changed trim or speed curve.
+export function getDepthAnalysisSignature(segment, quality = "balanced") {
+  return JSON.stringify({
+    src: segment?.src, type: segment?.type, duration: segment?.duration,
+    sourceStart: segment?.sourceStart, sourceDuration: segment?.sourceDuration,
+    playbackRate: segment?.playbackRate, speedCurve: segment?.speedCurve,
+    quality, samplingVersion: 3, refinement: 2, model: DEPTH_MODEL_HUGGING_FACE_REVISION,
+  });
+}
+
 export function normalizeCinematicDepth(value) {
   const source = value && typeof value === "object" ? value : {};
   return {
     ...DEFAULT_CINEMATIC_DEPTH,
     ...source,
     enabled: source.enabled === true,
+    output: ["depth-map", "relight"].includes(source.output) ? source.output : "cinematic",
+    relight: normalizeRelight(source.relight),
+    inverted: source.inverted === true,
     focus: clamp(source.focus, 0, 1, DEFAULT_CINEMATIC_DEPTH.focus),
     focusRange: clamp(source.focusRange, 0.04, 0.48, DEFAULT_CINEMATIC_DEPTH.focusRange),
     blur: clamp(source.blur, 0, 40, DEFAULT_CINEMATIC_DEPTH.blur),
@@ -37,16 +54,53 @@ export function resolveDepthAnalysisAtTime(analysis, time = 0) {
   if (!analysis) return null;
   if (!Array.isArray(analysis.samples) || !analysis.samples.length) return analysis.depthUrl ? analysis : null;
   const target = Math.max(0, Number(time) || 0);
-  let selected = analysis.samples[0];
-  let distance = Math.abs((Number(selected.time) || 0) - target);
-  for (const sample of analysis.samples) {
-    const nextDistance = Math.abs((Number(sample.time) || 0) - target);
-    if (nextDistance <= distance) {
-      selected = sample;
-      distance = nextDistance;
-    } else if ((Number(sample.time) || 0) > target) break;
+  const samples = analysis.samples;
+  const sampleTime = (sample) => Number(sample.sourceTime ?? sample.time) || 0;
+  let selected = samples[0];
+  let next = selected;
+  for (let index = 0; index < samples.length; index += 1) {
+    if (sampleTime(samples[index]) > target) {
+      next = samples[index];
+      break;
+    }
+    selected = samples[index];
+    next = selected;
   }
-  return { ...selected, sourceSize: analysis.sourceSize, complete: analysis.complete };
+  const interval = sampleTime(next) - sampleTime(selected);
+  const depthMix = interval > 0 ? Math.max(0, Math.min(1, (target - sampleTime(selected)) / interval)) : 0;
+  return { ...selected, nextDepthUrl: next.depthUrl, depthMix, sourceSize: analysis.sourceSize, complete: analysis.complete };
+}
+
+// Reuse decoded depth images across playback ticks instead of allocating and
+// decoding a new Image on every React update. Keep the cache bounded.
+const previewDepthImages = new Map();
+function loadDepthImage(url) {
+  if (!url) return Promise.resolve(null);
+  if (previewDepthImages.has(url)) return previewDepthImages.get(url);
+  const promise = new Promise((resolve, reject) => {
+    const image = new Image();
+    image.onload = () => resolve(image);
+    image.onerror = () => { previewDepthImages.delete(url); reject(new Error("Depth image decode failed")); };
+    image.src = url;
+  });
+  previewDepthImages.set(url, promise);
+  if (previewDepthImages.size > 16) previewDepthImages.delete(previewDepthImages.keys().next().value);
+  return promise;
+}
+export async function loadPreviewDepthFrame(sample) {
+  const [depthVisual, nextDepthVisual] = await Promise.all([
+    loadDepthImage(sample?.depthUrl), loadDepthImage(sample?.nextDepthUrl),
+  ]);
+  return { ...sample, depthVisual, nextDepthVisual };
+}
+
+export async function prepareDepthFrame(cache, sample) {
+  if (!sample) return;
+  await Promise.all([cache?.prepare(sample.depthUrl), sample.nextDepthUrl ? cache?.prepare(sample.nextDepthUrl) : null]);
+}
+export function getDepthFrame(cache, sample) {
+  return sample ? { ...sample, depthVisual: cache?.get(sample.depthUrl) || null,
+    nextDepthVisual: cache?.get(sample.nextDepthUrl) || null } : null;
 }
 
 const layerCache = new WeakMap();
@@ -109,6 +163,41 @@ export function drawCinematicDepthFrame(context, source, canvas, options = {}) {
   const fitMode = options.fitMode || "contain";
   const filter = options.filter || "none";
   const shouldClear = options.clear !== false;
+  if (effect.enabled && depthVisual && effect.output === "depth-map") {
+    if (shouldClear) context.clearRect(0, 0, canvas.width, canvas.height);
+    const mix = Math.max(0, Math.min(1, Number(options.depthMix) || 0));
+    // Blend on an isolated surface so opacity never leaks to the underlying
+    // source image or other timeline layers.
+    const layer = getLayers(canvas).result;
+    const layerContext = layer.getContext("2d");
+    layerContext.clearRect(0, 0, layer.width, layer.height);
+    const depthFilter = effect.inverted ? "invert(1)" : "none";
+    paintFitted(layerContext, depthVisual, layer, fitMode, depthFilter);
+    if (options.nextDepthVisual && mix > 0) {
+      layerContext.save();
+      layerContext.globalAlpha = mix;
+      paintFitted(layerContext, options.nextDepthVisual, layer, fitMode, depthFilter);
+      layerContext.restore();
+    }
+    context.drawImage(layer, 0, 0);
+    return;
+  }
+  if (effect.enabled && depthVisual && effect.output === "relight") {
+    const layers = getLayers(canvas);
+    const sharp = layers.sharp.getContext("2d");
+    sharp.clearRect(0, 0, canvas.width, canvas.height);
+    paintFitted(sharp, source, layers.sharp, fitMode, filter);
+    const mask = layers.mask.getContext("2d");
+    mask.clearRect(0, 0, canvas.width, canvas.height);
+    paintFitted(mask, depthVisual, layers.mask, fitMode);
+    const next = layers.blurred.getContext("2d");
+    next.clearRect(0, 0, canvas.width, canvas.height);
+    paintFitted(next, options.nextDepthVisual || depthVisual, layers.blurred, fitMode);
+    const lit = renderRelighting(canvas, layers.sharp, layers.mask, layers.blurred, options.depthMix, effect.relight);
+    if (shouldClear) context.clearRect(0, 0, canvas.width, canvas.height);
+    context.drawImage(lit, 0, 0);
+    return;
+  }
   if (!effect.enabled || !depthVisual || effect.blur <= 0) {
     if (shouldClear) context.clearRect(0, 0, canvas.width, canvas.height);
     paintFitted(context, source, canvas, fitMode, filter);
